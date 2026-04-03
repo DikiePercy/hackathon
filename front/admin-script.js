@@ -1,5 +1,41 @@
 const ADMIN_TOKEN_KEY = "archive_admin_token";
-let adminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+
+function getCookie(name) {
+  const encoded = encodeURIComponent(name) + "=";
+  const parts = document.cookie.split(";");
+  for (const part of parts) {
+    const item = part.trim();
+    if (item.startsWith(encoded)) {
+      return decodeURIComponent(item.slice(encoded.length));
+    }
+  }
+  return "";
+}
+
+function setCookie(name, value, maxAgeSeconds = 86400) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure}`;
+}
+
+function deleteCookie(name) {
+  document.cookie = `${encodeURIComponent(name)}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+function readStoredToken() {
+  return getCookie(ADMIN_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+}
+
+function saveStoredToken(token) {
+  setCookie(ADMIN_TOKEN_KEY, token, 60 * 60 * 24 * 7);
+  localStorage.setItem(ADMIN_TOKEN_KEY, token);
+}
+
+function clearStoredToken() {
+  deleteCookie(ADMIN_TOKEN_KEY);
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+let adminToken = readStoredToken();
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -73,16 +109,71 @@ async function loginAdmin() {
 
   const payload = await response.json();
   adminToken = payload.access_token || "";
-  localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+  saveStoredToken(adminToken);
   setAdminStatus(`Вход выполнен: ${username}`);
   await loadCards();
 }
 
 function logoutAdmin() {
   adminToken = "";
-  localStorage.removeItem(ADMIN_TOKEN_KEY);
+  clearStoredToken();
   setAdminStatus("Вы вышли");
   document.getElementById("adminCardsList").innerHTML = "";
+}
+
+function parseIntOrNull(value) {
+  if (!value || value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isInteger(n) ? n : null;
+}
+
+async function createCard() {
+  if (!adminToken) {
+    setAdminStatus("Сначала войдите");
+    return;
+  }
+
+  const name = document.getElementById("createName").value.trim();
+  if (!name) {
+    setAdminStatus("Введите ФИО для создания карточки");
+    return;
+  }
+
+  const payload = {
+    name,
+    region: document.getElementById("createRegion").value.trim() || undefined,
+    birth_year: parseIntOrNull(document.getElementById("createBirthYear").value),
+    death_year: parseIntOrNull(document.getElementById("createDeathYear").value),
+    category: document.getElementById("createOccupation").value.trim() || undefined,
+    charge: document.getElementById("createCharge").value.trim() || undefined,
+    description: document.getElementById("createBiography").value.trim() || undefined
+  };
+
+  const response = await fetch(apiUrl("/cards"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка создания: ${body.detail || response.status}`);
+    return;
+  }
+
+  const created = await response.json();
+  setAdminStatus(`Карточка создана: #${created.id}`);
+  document.getElementById("createName").value = "";
+  document.getElementById("createRegion").value = "";
+  document.getElementById("createBirthYear").value = "";
+  document.getElementById("createDeathYear").value = "";
+  document.getElementById("createOccupation").value = "";
+  document.getElementById("createCharge").value = "";
+  document.getElementById("createBiography").value = "";
+  await loadCards();
 }
 
 async function importSeedFile() {
@@ -189,8 +280,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("adminLoginBtn").addEventListener("click", loginAdmin);
   document.getElementById("adminLogoutBtn").addEventListener("click", logoutAdmin);
   document.getElementById("seedImportBtn").addEventListener("click", importSeedFile);
+  document.getElementById("createCardBtn").addEventListener("click", createCard);
   document.getElementById("refreshCardsBtn").addEventListener("click", loadCards);
 
-  setAdminStatus(adminToken ? "Токен найден" : "Не авторизован");
+  setAdminStatus(adminToken ? "Токен найден (cookie/localStorage)" : "Не авторизован");
   loadCards();
 });

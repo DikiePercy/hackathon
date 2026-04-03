@@ -53,6 +53,22 @@
         </div>
 
         <div class="admin-panel">
+          <h3>Добавить карточку вручную</h3>
+          <div class="admin-form-grid">
+            <input id="createName" type="text" placeholder="ФИО *">
+            <input id="createRegion" type="text" placeholder="Регион">
+            <input id="createBirthYear" type="number" placeholder="Год рождения">
+            <input id="createDeathYear" type="number" placeholder="Год смерти">
+            <input id="createOccupation" type="text" placeholder="Профессия / категория">
+            <input id="createCharge" type="text" placeholder="Обвинение">
+          </div>
+          <textarea id="createBiography" rows="5" placeholder="Биография"></textarea>
+          <div class="admin-actions">
+            <button id="createCardBtn" type="button">Создать карточку</button>
+          </div>
+        </div>
+
+        <div class="admin-panel">
           <h3>Список карточек и удаление</h3>
           <div class="admin-actions">
             <button id="refreshCardsBtn" type="button">Обновить список</button>

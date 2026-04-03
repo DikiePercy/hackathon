@@ -1,5 +1,41 @@
 const CHAT_TOKEN_KEY = "archive_chat_token";
-let chatToken = localStorage.getItem(CHAT_TOKEN_KEY) || "";
+
+function getCookie(name) {
+  const encoded = encodeURIComponent(name) + "=";
+  const parts = document.cookie.split(";");
+  for (const part of parts) {
+    const item = part.trim();
+    if (item.startsWith(encoded)) {
+      return decodeURIComponent(item.slice(encoded.length));
+    }
+  }
+  return "";
+}
+
+function setCookie(name, value, maxAgeSeconds = 86400) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure}`;
+}
+
+function deleteCookie(name) {
+  document.cookie = `${encodeURIComponent(name)}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+function readStoredToken() {
+  return getCookie(CHAT_TOKEN_KEY) || localStorage.getItem(CHAT_TOKEN_KEY) || "";
+}
+
+function saveStoredToken(token) {
+  setCookie(CHAT_TOKEN_KEY, token, 60 * 60 * 24 * 7);
+  localStorage.setItem(CHAT_TOKEN_KEY, token);
+}
+
+function clearStoredToken() {
+  deleteCookie(CHAT_TOKEN_KEY);
+  localStorage.removeItem(CHAT_TOKEN_KEY);
+}
+
+let chatToken = readStoredToken();
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -78,13 +114,13 @@ async function loginUser() {
 
   const payload = await response.json();
   chatToken = payload.access_token || "";
-  localStorage.setItem(CHAT_TOKEN_KEY, chatToken);
+  saveStoredToken(chatToken);
   setStatus(`Вход выполнен: ${username}`);
 }
 
 function logoutUser() {
   chatToken = "";
-  localStorage.removeItem(CHAT_TOKEN_KEY);
+  clearStoredToken();
   setStatus("Вы вышли");
 }
 
@@ -132,5 +168,5 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  setStatus(chatToken ? "Токен найден, можно писать в чат" : "Не авторизован");
+  setStatus(chatToken ? "Токен найден (cookie/localStorage), можно писать в чат" : "Не авторизован");
 });
