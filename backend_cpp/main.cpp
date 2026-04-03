@@ -7,7 +7,7 @@
 
 using json = nlohmann::json;
 
-// Check if text is garbage (too many special characters or nonsense)
+// Текст мусор ?
 bool is_garbage(const std::string& text, std::string& reason) {
     if (text.empty()) {
         reason = "Empty text";
