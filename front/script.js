@@ -30,6 +30,17 @@ const META_LABELS = {
   rehabilitation_date: "Дата реабилитации"
 };
 
+function resolveApiBase() {
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get("api");
+  if (fromQuery) {
+    return fromQuery.replace(/\/$/, "");
+  }
+  return "http://localhost:8000";
+}
+
+const API_BASE = resolveApiBase();
+
 function formatDate(dateStr) {
   if (!dateStr) return "—";
   const parts = dateStr.split("-");
@@ -110,11 +121,13 @@ function renderPerson(data) {
 }
 
 async function loadPerson() {
-  const API_URL = "http://localhost:8000/api/person/1";
+  const params = new URLSearchParams(window.location.search);
+  const personId = Number(params.get("id")) || 1;
+  const apiUrl = `${API_BASE}/api/person/${personId}`;
   let data;
 
   try {
-    const response = await fetch(API_URL);
+    const response = await fetch(apiUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     console.log("Loaded data from API");
@@ -126,4 +139,43 @@ async function loadPerson() {
   renderPerson(data);
 }
 
-document.addEventListener("DOMContentLoaded", loadPerson);
+async function searchPerson() {
+  const input = document.getElementById("searchInput");
+  const query = (input.value || "").trim();
+  if (!query) {
+    await loadPerson();
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/persons/search?q=${encodeURIComponent(query)}&limit=1`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const results = await response.json();
+    if (!results.length) {
+      alert("Ничего не найдено");
+      return;
+    }
+    const person = results[0];
+    const url = new URL(window.location.href);
+    url.searchParams.set("id", String(person.id));
+    history.replaceState(null, "", url.toString());
+    await loadPerson();
+  } catch (err) {
+    console.warn("Search failed:", err.message);
+    alert("Ошибка поиска: backend недоступен");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("searchBtn");
+  const input = document.getElementById("searchInput");
+
+  btn.addEventListener("click", searchPerson);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      searchPerson();
+    }
+  });
+
+  loadPerson();
+});
