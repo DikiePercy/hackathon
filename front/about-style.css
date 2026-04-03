@@ -1,0 +1,98 @@
+/* Основной контейнер страницы */
+.main-wrapper {
+    max-width: 1200px;
+    margin: 40px auto;
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 40px;
+    padding: 0 20px;
+}
+
+/* Хлебные крошки и навигация */
+.about-breadcrumbs {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.about-breadcrumbs a {
+    color: #800000;
+    text-decoration: none;
+}
+
+.about-back-link {
+    display: inline-block;
+    color: #800000;
+    text-decoration: none;
+    margin-bottom: 30px;
+}
+
+/* Заголовки */
+.about-title {
+    font-family: Georgia, serif;
+    color: #800000;
+    font-size: 2.2rem;
+    margin-bottom: 20px;
+}
+
+.about-section-title {
+    font-family: Georgia, serif;
+    color: #800000;
+    font-size: 1.6rem;
+    margin-top: 40px;
+    border-bottom: 1px solid #dcd7ca;
+    padding-bottom: 10px;
+}
+
+/* Основной текст и типографика */
+.about-text {
+    line-height: 1.8;
+    color: #333;
+}
+
+/* Эффект большой первой буквы (буквица) */
+.about-dropcap::first-letter {
+    font-family: Georgia, serif;
+    font-size: 4rem;
+    color: #800000;
+    float: left;
+    line-height: 0.7;
+    margin-right: 10px;
+    margin-top: 5px;
+}
+
+/* Сетка для карточек (например, статистика или партнеры) */
+.about-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Стили самих карточек */
+.about-card {
+    background: #fff;
+    border: 1px solid #e8e4db;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+/* Элементы внутри карточек */
+.partner-icon {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+.stat-number {
+    font-family: Georgia, serif;
+    font-size: 2rem;
+    color: #800000;
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: #666;
+}
