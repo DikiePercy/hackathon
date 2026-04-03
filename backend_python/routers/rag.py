@@ -1,0 +1,163 @@
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Optional
+import requests
+import os
+from database import get_db, User, ChatHistory, PersonCard
+from auth import get_current_user
+from rag_engine import add_documents_to_vector_db, search_documents, generate_answer
+import json
+
+router = APIRouter()
+
+CPP_BACKEND_URL = os.getenv("CPP_BACKEND_URL", "http://cpp_backend:8080")
+
+
+class ChatRequest(BaseModel):
+    query: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: List[int]
+
+
+@router.post("/upload_document")
+async def upload_document(
+    file: UploadFile = File(...),
+    person_id: int = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Check if person card exists
+    card = db.query(PersonCard).filter(PersonCard.id == person_id).first()
+    if not card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person card not found"
+        )
+    
+    # Read file content
+    content = await file.read()
+    text = content.decode("utf-8")
+    
+    # Send to C++ backend for processing
+    try:
+        response = requests.post(
+            f"{CPP_BACKEND_URL}/process",
+            json={"text": text},
+            timeout=30
+        )
+        response.raise_for_status()
+        result = response.json()
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"C++ backend unavailable: {str(e)}"
+        )
+    
+    # Check if document is garbage
+    if result.get("is_garbage", True):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document appears to be garbage or unreadable"
+        )
+    
+    # Get chunks
+    chunks = result.get("chunks", [])
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid content found in document"
+        )
+    
+    # Add to vector database
+    try:
+        num_chunks = add_documents_to_vector_db(chunks, person_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+    
+    return {
+        "message": "Document uploaded successfully",
+        "person_id": person_id,
+        "chunks_created": num_chunks
+    }
+
+
+@router.post("/chat", response_model=ChatResponse)
+def chat(
+    chat_request: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = chat_request.query
+    
+    # Search for relevant documents
+    try:
+        search_results = search_documents(query, top_k=3)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+    
+    documents = search_results["documents"]
+    metadatas = search_results["metadatas"]
+    
+    if not documents:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No relevant information found"
+        )
+    
+    # Extract person_ids from metadata
+    person_ids = list(set([meta["person_id"] for meta in metadatas]))
+    
+    # Generate answer using LLM
+    try:
+        answer = generate_answer(query, documents)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+    
+    # Save to chat history
+    chat_entry = ChatHistory(
+        user_id=current_user.id,
+        user_message=query,
+        bot_response=answer,
+        sources=json.dumps(person_ids)
+    )
+    db.add(chat_entry)
+    db.commit()
+    
+    return ChatResponse(answer=answer, sources=person_ids)
+
+
+@router.get("/chat/history")
+def get_chat_history(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    history = db.query(ChatHistory)\
+        .filter(ChatHistory.user_id == current_user.id)\
+        .order_by(ChatHistory.timestamp.desc())\
+        .limit(limit)\
+        .all()
+    
+    return [
+        {
+            "id": entry.id,
+            "user_message": entry.user_message,
+            "bot_response": entry.bot_response,
+            "timestamp": entry.timestamp,
+            "sources": json.loads(entry.sources) if entry.sources else []
+        }
+        for entry in history
+    ]

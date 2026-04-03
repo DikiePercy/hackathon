@@ -1,6 +1,37 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .venv/
+venv/
+*.egg-info/
+
+# Environment
 .env
+.env.local
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+*.log
+
+# Databases
+*.db
+*.sqlite
+chroma_db/
+
+# Build artifacts
+backend_cpp/cpp_backend
+backend_cpp/CMakeCache.txt
+backend_cpp/CMakeFiles/
+backend_cpp/cmake_install.cmake
+backend_cpp/Makefile
+
+# OS
+.DS_Store
+Thumbs.db

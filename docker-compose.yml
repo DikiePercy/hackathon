@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: hackathon_db
+    environment:
+      POSTGRES_USER: hackathon
+      POSTGRES_PASSWORD: hackathon
+      POSTGRES_DB: hackathon
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hackathon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ChromaDB Vector Database
+  vector_db:
+    image: chromadb/chroma:latest
+    container_name: hackathon_vector_db
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "8001:8000"
+    networks:
+      - backend_network
+    environment:
+      - IS_PERSISTENT=TRUE
+
+  # C++ Backend (Text Processing)
+  cpp_backend:
+    build:
+      context: ./backend_cpp
+      dockerfile: Dockerfile
+    container_name: hackathon_cpp_backend
+    ports:
+      - "8080:8080"
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Python Backend (API, RAG, Auth)
+  backend_python:
+    build:
+      context: ./backend_python
+      dockerfile: Dockerfile
+    container_name: hackathon_python_backend
+    ports:
+      - "8000:8000"
+    networks:
+      - backend_network
+      - frontend_network
+    environment:
+      - DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CPP_BACKEND_URL=http://cpp_backend:8080
+      - CHROMA_PATH=/app/chroma_db
+    volumes:
+      - chroma_data_python:/app/chroma_db
+    depends_on:
+      db:
+        condition: service_healthy
+      cpp_backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Streamlit Frontend
+  frontend:
+    build:
+      context: ./frontend_python
+      dockerfile: Dockerfile
+    container_name: hackathon_frontend
+    ports:
+      - "8501:8501"
+    networks:
+      - frontend_network
+    environment:
+      - BACKEND_URL=http://backend_python:8000
+    depends_on:
+      backend_python:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  chroma_data:
+  chroma_data_python:
+
+networks:
+  backend_network:
+    driver: bridge
+  frontend_network:
+    driver: bridge
