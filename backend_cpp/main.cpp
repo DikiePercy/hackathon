@@ -18,7 +18,8 @@ bool is_garbage(const std::string& text) {
     int total_word_length = 0;
     
     for (char c : text) {
-        if (std::isspace(c)) {
+        unsigned char uc = static_cast<unsigned char>(c);
+        if (std::isspace(uc)) {
             if (word_length > 0) {
                 word_count++;
                 total_word_length += word_length;
@@ -26,7 +27,7 @@ bool is_garbage(const std::string& text) {
             }
         } else {
             total_chars++;
-            if (std::isalnum(c)) {
+            if (std::isalnum(uc)) {
                 letters_digits++;
             }
             word_length++;
@@ -85,7 +86,7 @@ std::vector<std::string> chunk_text(const std::string& text, int chunk_size = 10
         
         // Try to break at word boundary
         if (end < text_length) {
-            while (end > start && !std::isspace(cleaned[end])) {
+            while (end > start && !std::isspace(static_cast<unsigned char>(cleaned[end]))) {
                 end--;
             }
             if (end == start) {
@@ -103,7 +104,11 @@ std::vector<std::string> chunk_text(const std::string& text, int chunk_size = 10
             chunks.push_back(chunk);
         }
         
-        start = end - overlap;
+        int next_start = end - overlap;
+        if (next_start <= start) {
+            next_start = end;
+        }
+        start = next_start;
         if (start < 0) start = 0;
         if (start >= text_length) break;
     }

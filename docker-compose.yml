@@ -63,17 +63,19 @@ services:
       - frontend_network
     environment:
       - DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - SECRET_KEY=${SECRET_KEY?SECRET_KEY is required}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CPP_BACKEND_URL=http://cpp_backend:8080
-      - CHROMA_PATH=/app/chroma_db
-    volumes:
-      - chroma_data_python:/app/chroma_db
+      - CHROMA_HOST=vector_db
+      - CHROMA_PORT=8000
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:8501,http://localhost:3000}
     depends_on:
       db:
         condition: service_healthy
       cpp_backend:
         condition: service_healthy
+      vector_db:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -99,7 +101,6 @@ services:
 volumes:
   postgres_data:
   chroma_data:
-  chroma_data_python:
 
 networks:
   backend_network:

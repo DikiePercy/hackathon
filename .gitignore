@@ -35,3 +35,6 @@ backend_cpp/Makefile
 # OS
 .DS_Store
 Thumbs.db
+
+# Files of Dastan ^)
+.dastan/

@@ -1,20 +1,27 @@
 import os
 from typing import List, Dict
+from uuid import uuid4
 import chromadb
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 CHROMA_PATH = os.getenv("CHROMA_PATH", "/app/chroma_db")
+CHROMA_HOST = os.getenv("CHROMA_HOST", "")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "documents")
 
 # Initialize ChromaDB client
-chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+if CHROMA_HOST:
+    chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+else:
+    chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 # Get or create collection
 try:
-    collection = chroma_client.get_collection(name="documents")
-except:
-    collection = chroma_client.create_collection(name="documents")
+    collection = chroma_client.get_collection(name=CHROMA_COLLECTION)
+except Exception:
+    collection = chroma_client.create_collection(name=CHROMA_COLLECTION)
 
 # Initialize embeddings
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
@@ -27,7 +34,7 @@ llm = ChatOpenAI(
 ) if OPENAI_API_KEY else None
 
 
-def add_documents_to_vector_db(chunks: List[str], person_id: int):
+def add_documents_to_vector_db(chunks: List[str], person_id: int, document_name: str):
     """Add document chunks to ChromaDB with person_id metadata"""
     if not embeddings:
         raise ValueError("OpenAI API key not configured")
@@ -36,8 +43,12 @@ def add_documents_to_vector_db(chunks: List[str], person_id: int):
     embedded_chunks = embeddings.embed_documents(chunks)
     
     # Prepare data for ChromaDB
-    ids = [f"doc_{person_id}_{i}" for i in range(len(chunks))]
-    metadatas = [{"person_id": person_id, "chunk_index": i} for i in range(len(chunks))]
+    doc_uid = uuid4().hex
+    ids = [f"doc_{person_id}_{doc_uid}_{i}" for i in range(len(chunks))]
+    metadatas = [
+        {"person_id": person_id, "chunk_index": i, "document_name": document_name}
+        for i in range(len(chunks))
+    ]
     
     # Add to collection
     collection.add(

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 import requests
 import os
 from database import get_db, User, ChatHistory, PersonCard
@@ -30,6 +30,19 @@ async def upload_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File name is required"
+        )
+
+    allowed_extensions = (".txt", ".md")
+    if not file.filename.lower().endswith(allowed_extensions):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .txt and .md files are supported"
+        )
+
     # Check if person card exists
     card = db.query(PersonCard).filter(PersonCard.id == person_id).first()
     if not card:
@@ -40,7 +53,13 @@ async def upload_document(
     
     # Read file content
     content = await file.read()
-    text = content.decode("utf-8")
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to decode file as UTF-8 text"
+        )
     
     # Send to C++ backend for processing
     try:
@@ -74,7 +93,7 @@ async def upload_document(
     
     # Add to vector database
     try:
-        num_chunks = add_documents_to_vector_db(chunks, person_id)
+        num_chunks = add_documents_to_vector_db(chunks, person_id, file.filename)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

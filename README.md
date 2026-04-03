@@ -48,11 +48,14 @@ cd hackathon
 
 2. **Настройте переменные окружения:**
 ```bash
-# Отредактируйте .env файл
+cp .env.example .env
 nano .env
-
-# Установите OPENAI_API_KEY и SECRET_KEY
 ```
+
+Минимум для запуска backend:
+- `OPENAI_API_KEY` — ключ LLM/эмбеддингов
+- `SECRET_KEY` — секрет JWT (обязателен, без дефолтного значения)
+- `CORS_ALLOW_ORIGINS` — список origin через запятую
 
 3. **Запустите все сервисы:**
 ```bash
@@ -136,6 +139,17 @@ hackathon/
 - `POST /cards` - Создание
 - `PUT /cards/{id}` - Обновление
 - `DELETE /cards/{id}` - Удаление
+- `POST /cards/import` - Массовый импорт карточек (в формате API)
+- `POST /cards/import/seed` - Импорт тестового seed формата (`full_name`, `biography`, ...)
+
+Обязательные поля карточки:
+- `name`
+- `birth_year`
+- `region`
+- `charge`
+- `description`
+
+Система проверяет дубли по сочетанию `name + birth_year`.
 
 **RAG система:**
 - `POST /upload_document` - Загрузка документа для карточки
@@ -181,6 +195,12 @@ curl http://localhost:8000/health
 curl -X POST http://localhost:8000/register \
   -H "Content-Type: application/json" \
   -d '{"username": "test", "password": "test123"}'
+
+# Импорт seed карточек (после получения токена)
+curl -X POST http://localhost:8000/cards/import/seed \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  --data-binary @.dastan/test-seed/seed.json
 ```
 
 ## 📝 База данных
