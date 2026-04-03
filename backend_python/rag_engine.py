@@ -22,17 +22,27 @@ def _build_chroma_client() -> chromadb.ClientAPI:
         raise RuntimeError(f"Failed to initialize Chroma client: {exc}") from exc
 
 
-_chroma_client = _build_chroma_client()
+_chroma_client: chromadb.ClientAPI | None = None
+_collection: Any | None = None
+
+
+def _get_client() -> chromadb.ClientAPI:
+    global _chroma_client
+    if _chroma_client is None:
+        _chroma_client = _build_chroma_client()
+    return _chroma_client
 
 
 def _get_collection() -> Any:
     try:
-        return _chroma_client.get_or_create_collection(name=CHROMA_COLLECTION)
+        global _collection
+        if _collection is None:
+            _collection = _get_client().get_or_create_collection(name=CHROMA_COLLECTION)
+        return _collection
     except Exception as exc:
         raise RuntimeError(f"Failed to access Chroma collection '{CHROMA_COLLECTION}': {exc}") from exc
 
 
-collection = _get_collection()
 embeddings = (
     GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=GEMINI_API_KEY)
     if GEMINI_API_KEY
@@ -71,6 +81,7 @@ def add_documents_to_vector_db(chunks: List[str], person_id: int, document_name:
     ]
 
     try:
+        collection = _get_collection()
         collection.add(
             ids=ids,
             documents=normalized_chunks,
@@ -92,6 +103,7 @@ def search_documents(query: str, top_k: int = 3) -> Dict[str, List[Any]]:
         raise ValueError("Query must not be empty")
 
     try:
+        collection = _get_collection()
         query_vector = embeddings.embed_query(query)
         results = collection.query(query_embeddings=[query_vector], n_results=max(1, top_k))
     except Exception as exc:

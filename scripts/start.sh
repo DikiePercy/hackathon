@@ -44,6 +44,37 @@ ensure_package() {
   fi
 }
 
+try_install_package() {
+  local pkg="$1"
+  log "Trying package: $pkg"
+  apt_update_once
+  if as_root apt-get install -y "$pkg"; then
+    return 0
+  fi
+  return 1
+}
+
+ensure_compose_available() {
+  if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1; then
+    return
+  fi
+
+  if try_install_package docker-compose-plugin; then
+    return
+  fi
+
+  if try_install_package docker-compose-v2; then
+    return
+  fi
+
+  if try_install_package docker-compose; then
+    return
+  fi
+
+  log "Failed to install Docker Compose. Install it manually and rerun start.sh"
+  exit 1
+}
+
 ensure_prerequisites() {
   if [[ ! -f /etc/debian_version ]]; then
     log "Auto-install is supported for Debian/Ubuntu only. Install Docker manually."
@@ -53,13 +84,39 @@ ensure_prerequisites() {
   ensure_package ca-certificates
   ensure_package curl
   ensure_package docker.io
-
-  if ! docker compose version >/dev/null 2>&1; then
-    ensure_package docker-compose-plugin
-  fi
+  ensure_compose_available
 
   as_root systemctl enable docker >/dev/null 2>&1 || true
   as_root systemctl start docker >/dev/null 2>&1 || true
+}
+
+generate_secret_key() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32
+    return
+  fi
+
+  # Fallback when openssl is unavailable.
+  date +%s%N
+}
+
+ensure_env_file() {
+  if [[ -f "$REPO_ROOT/.env" ]]; then
+    return
+  fi
+
+  local secret_key
+  secret_key="$(generate_secret_key)"
+
+  log "Missing .env file, creating a default working .env"
+  cat > "$REPO_ROOT/.env" <<EOF
+SECRET_KEY=${secret_key}
+GEMINI_API_KEY=
+CORS_ALLOW_ORIGINS=http://localhost:8501,http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173
+DB_DATA_DIR=${REPO_ROOT}/runtime-data/postgres
+CHROMA_DATA_DIR=${REPO_ROOT}/runtime-data/chroma
+APP_DATA_DIR=${REPO_ROOT}/runtime-data/app
+EOF
 }
 
 compose_cmd() {
@@ -79,12 +136,7 @@ compose_cmd() {
 
 ensure_prerequisites
 require_cmd docker
-
-if [[ ! -f "$REPO_ROOT/.env" ]]; then
-  log "Missing .env file"
-  log "Create it from template: cp .env.example .env"
-  exit 1
-fi
+ensure_env_file
 
 set -a
 # shellcheck disable=SC1091
