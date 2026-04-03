@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: hackathon
       POSTGRES_DB: hackathon
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${DB_DATA_DIR:-./runtime-data/postgres}:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
@@ -26,7 +26,7 @@ services:
     image: chromadb/chroma:latest
     container_name: hackathon_vector_db
     volumes:
-      - chroma_data:/chroma/chroma
+      - ${CHROMA_DATA_DIR:-./runtime-data/chroma}:/chroma/chroma
     ports:
       - "8001:8000"
     networks:
@@ -72,7 +72,7 @@ services:
       - CHROMA_HOST=vector_db
       - CHROMA_PORT=8000
     volumes:
-      - app_data:/data
+      - ${APP_DATA_DIR:-./runtime-data/app}:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -95,11 +95,6 @@ services:
     depends_on:
       python_backend:
         condition: service_healthy
-
-volumes:
-  postgres_data:
-  chroma_data:
-  app_data: # Добавил этот volume, так как он используется в питоне
 
 networks:
   hackathon_network:
