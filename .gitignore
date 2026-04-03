@@ -24,6 +24,7 @@ venv/
 *.db
 *.sqlite
 chroma_db/
+runtime-data/
 
 # Build artifacts
 backend_cpp/cpp_backend
