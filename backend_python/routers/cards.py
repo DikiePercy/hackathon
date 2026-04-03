@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import json
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
@@ -10,12 +13,12 @@ router = APIRouter()
 
 class PersonCardCreate(BaseModel):
     name: str
-    birth_year: int
+    birth_year: Optional[int] = 1900
     death_year: Optional[int] = None
-    region: str
+    region: Optional[str] = "Unknown"
     category: Optional[str] = None
-    charge: str
-    description: str
+    charge: Optional[str] = "Unknown"
+    description: Optional[str] = ""
     source: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
@@ -39,14 +42,24 @@ class PersonCardResponse(BaseModel):
 
 
 class SeedPersonCard(BaseModel):
+    id: Optional[int] = None
     full_name: str
-    birth_year: int
+    birth_year: Optional[int] = None
     death_year: Optional[int] = None
-    region: str
+    region: Optional[str] = None
     occupation: Optional[str] = None
-    charge: str
-    biography: str
+    charge: Optional[str] = None
+    biography: Optional[str] = None
     source: Optional[str] = None
+
+
+def _normalize_card_payload(card_data: PersonCardCreate) -> dict:
+    payload = card_data.model_dump()
+    payload["birth_year"] = payload.get("birth_year") or 1900
+    payload["region"] = payload.get("region") or "Unknown"
+    payload["charge"] = payload.get("charge") or "Unknown"
+    payload["description"] = payload.get("description") or ""
+    return payload
 
 
 @router.get("/cards", response_model=List[PersonCardResponse])
@@ -94,9 +107,10 @@ def create_card(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    payload = _normalize_card_payload(card_data)
     duplicate = db.query(PersonCard).filter(
-        PersonCard.name.ilike(card_data.name),
-        PersonCard.birth_year == card_data.birth_year
+        PersonCard.name.ilike(payload["name"]),
+        PersonCard.birth_year == payload["birth_year"]
     ).first()
     if duplicate:
         raise HTTPException(
@@ -104,7 +118,7 @@ def create_card(
             detail="Duplicate card: same name and birth year already exists"
         )
 
-    new_card = PersonCard(**card_data.model_dump())
+    new_card = PersonCard(**payload)
     db.add(new_card)
     db.commit()
     db.refresh(new_card)
@@ -118,6 +132,7 @@ def update_card(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    payload = _normalize_card_payload(card_data)
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
         raise HTTPException(
@@ -127,8 +142,8 @@ def update_card(
 
     duplicate = db.query(PersonCard).filter(
         PersonCard.id != card_id,
-        PersonCard.name.ilike(card_data.name),
-        PersonCard.birth_year == card_data.birth_year
+        PersonCard.name.ilike(payload["name"]),
+        PersonCard.birth_year == payload["birth_year"]
     ).first()
     if duplicate:
         raise HTTPException(
@@ -136,7 +151,7 @@ def update_card(
             detail="Duplicate card: same name and birth year already exists"
         )
     
-    for key, value in card_data.model_dump().items():
+    for key, value in payload.items():
         setattr(card, key, value)
     
     db.commit()
@@ -173,20 +188,21 @@ def import_cards(
     seen_keys = set()
 
     for card_data in cards_data:
-        key = (card_data.name.strip().lower(), card_data.birth_year)
+        payload = _normalize_card_payload(card_data)
+        key = (payload["name"].strip().lower(), payload["birth_year"])
         if key in seen_keys:
             skipped_duplicates += 1
             continue
 
         duplicate = db.query(PersonCard).filter(
-            PersonCard.name.ilike(card_data.name),
-            PersonCard.birth_year == card_data.birth_year
+            PersonCard.name.ilike(payload["name"]),
+            PersonCard.birth_year == payload["birth_year"]
         ).first()
         if duplicate:
             skipped_duplicates += 1
             continue
 
-        db.add(PersonCard(**card_data.model_dump()))
+        db.add(PersonCard(**payload))
         seen_keys.add(key)
         created += 1
 
@@ -243,3 +259,80 @@ def import_seed_cards(
         "skipped_duplicates": skipped_duplicates,
         "total": len(cards_data)
     }
+
+
+@router.post("/api/persons/import")
+async def import_persons_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    content = await file.read()
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {exc}")
+
+    if not isinstance(payload, list):
+        raise HTTPException(status_code=400, detail="Expected JSON array")
+
+    created = 0
+    skipped_duplicates = 0
+    seen_keys = set()
+
+    for item in payload:
+        seed = SeedPersonCard(**item)
+        key = ((seed.full_name or "").strip().lower(), seed.birth_year or 1900)
+        if key in seen_keys:
+            skipped_duplicates += 1
+            continue
+
+        duplicate = db.query(PersonCard).filter(
+            PersonCard.name.ilike(seed.full_name),
+            PersonCard.birth_year == (seed.birth_year or 1900)
+        ).first()
+        if duplicate:
+            skipped_duplicates += 1
+            continue
+
+        db.add(PersonCard(
+            name=seed.full_name,
+            birth_year=seed.birth_year or 1900,
+            death_year=seed.death_year,
+            region=seed.region or "Unknown",
+            category=seed.occupation,
+            charge=seed.charge or "Unknown",
+            description=seed.biography or "",
+            source=seed.source,
+            lat=None,
+            lon=None,
+        ))
+        seen_keys.add(key)
+        created += 1
+
+    db.commit()
+    return {"imported": created, "skipped_duplicates": skipped_duplicates, "total": len(payload)}
+
+
+@router.get("/api/persons/alphabetical")
+def persons_alphabetical(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    rows = db.query(PersonCard).order_by(PersonCard.name.asc()).all()
+    index = defaultdict(list)
+
+    for card in rows:
+        letter = (card.name[0].upper() if card.name else "?")
+        index[letter].append({
+            "id": card.id,
+            "full_name": card.name,
+            "birth_year": card.birth_year,
+            "death_year": card.death_year,
+            "occupation": card.category,
+            "region": card.region,
+            "sentence": None,
+            "rehabilitation_date": None,
+        })
+
+    return dict(sorted(index.items()))

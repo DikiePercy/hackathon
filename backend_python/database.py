@@ -1,12 +1,22 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
+    Index,
+)
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from datetime import datetime
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://hackathon:hackathon@db:5432/hackathon")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -19,10 +29,15 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     
     chat_history = relationship("ChatHistory", back_populates="user")
+    revisions = relationship("PersonRevision", back_populates="author")
 
 
 class PersonCard(Base):
     __tablename__ = "person_cards"
+    __table_args__ = (
+        UniqueConstraint("name", "birth_year", name="uq_person_cards_name_birth_year"),
+        Index("ix_person_cards_name_region", "name", "region"),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=False)
@@ -35,6 +50,56 @@ class PersonCard(Base):
     source = Column(Text, nullable=True)
     lat = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    revisions = relationship("PersonRevision", back_populates="person", cascade="all, delete-orphan")
+    chunks = relationship("DocumentChunk", back_populates="person")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False, index=True)
+    content = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    __table_args__ = (
+        Index("ix_document_chunks_document_chunk_index", "document_id", "chunk_index"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    person_id = Column(Integer, ForeignKey("person_cards.id"), nullable=True, index=True)
+    chunk_text = Column(Text, nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    document = relationship("Document", back_populates="chunks")
+    person = relationship("PersonCard", back_populates="chunks")
+
+
+class PersonRevision(Base):
+    __tablename__ = "person_revisions"
+    __table_args__ = (
+        Index("ix_person_revisions_person_created_at", "person_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    person_id = Column(Integer, ForeignKey("person_cards.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    comment = Column(String, nullable=True)
+    snapshot = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    person = relationship("PersonCard", back_populates="revisions")
+    author = relationship("User", back_populates="revisions")
 
 
 class ChatHistory(Base):
@@ -60,14 +125,3 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    # Keep existing local DBs usable without a full migration stack.
-    with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS birth_year INTEGER"))
-        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS death_year INTEGER"))
-        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS region VARCHAR"))
-        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS charge TEXT"))
-        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS source TEXT"))
-        conn.execute(text("UPDATE person_cards SET birth_year = 1900 WHERE birth_year IS NULL"))
-        conn.execute(text("UPDATE person_cards SET region = 'Unknown' WHERE region IS NULL"))
-        conn.execute(text("UPDATE person_cards SET charge = 'Unknown' WHERE charge IS NULL"))
-        conn.execute(text("UPDATE person_cards SET description = '' WHERE description IS NULL"))
