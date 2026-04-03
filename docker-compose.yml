@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. PostgreSQL Database
   db:
@@ -92,6 +90,20 @@ services:
       - hackathon_network
     environment:
       - BACKEND_URL=http://python_backend:8000
+    depends_on:
+      python_backend:
+        condition: service_healthy
+
+  # 6. Static Web Frontend (port 80)
+  web_front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: hackathon_web
+    ports:
+      - "80:80"
+    networks:
+      - hackathon_network
     depends_on:
       python_backend:
         condition: service_healthy

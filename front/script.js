@@ -36,10 +36,128 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "http://localhost:8000";
+  return "";
 }
 
 const API_BASE = resolveApiBase();
+const TOKEN_KEY = "archive_auth_token";
+let authToken = localStorage.getItem(TOKEN_KEY) || "";
+
+function apiUrl(path) {
+  return API_BASE ? `${API_BASE}${path}` : path;
+}
+
+function updateAuthStatus(text) {
+  const statusEl = document.getElementById("authStatus");
+  if (statusEl) {
+    statusEl.textContent = text;
+  }
+}
+
+function appendRagMessage(role, text) {
+  const box = document.getElementById("ragMessages");
+  if (!box) return;
+  const div = document.createElement("div");
+  div.className = `rag-message ${role}`;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function registerUser() {
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value.trim();
+  if (!username || !password) {
+    updateAuthStatus("Введите логин и пароль");
+    return;
+  }
+
+  try {
+    const response = await fetch(apiUrl("/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || `HTTP ${response.status}`);
+    }
+    updateAuthStatus("Регистрация выполнена. Теперь войдите.");
+  } catch (err) {
+    updateAuthStatus(`Ошибка регистрации: ${err.message}`);
+  }
+}
+
+async function loginUser() {
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value.trim();
+  if (!username || !password) {
+    updateAuthStatus("Введите логин и пароль");
+    return;
+  }
+
+  try {
+    const body = new URLSearchParams();
+    body.set("username", username);
+    body.set("password", password);
+
+    const response = await fetch(apiUrl("/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString()
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || `HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    authToken = payload.access_token || "";
+    localStorage.setItem(TOKEN_KEY, authToken);
+    updateAuthStatus(`Вход выполнен: ${username}`);
+  } catch (err) {
+    updateAuthStatus(`Ошибка входа: ${err.message}`);
+  }
+}
+
+function logoutUser() {
+  authToken = "";
+  localStorage.removeItem(TOKEN_KEY);
+  updateAuthStatus("Вы вышли из аккаунта");
+}
+
+async function sendRagQuery() {
+  const input = document.getElementById("ragQuery");
+  const query = input.value.trim();
+  if (!query) return;
+  if (!authToken) {
+    updateAuthStatus("Сначала войдите, чтобы использовать RAG чат");
+    return;
+  }
+
+  appendRagMessage("user", `Вы: ${query}`);
+  input.value = "";
+
+  try {
+    const response = await fetch(apiUrl("/chat"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ query })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || `HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    appendRagMessage("assistant", `RAG: ${payload.answer || "Пустой ответ"}`);
+  } catch (err) {
+    appendRagMessage("assistant", `Ошибка: ${err.message}`);
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -123,11 +241,11 @@ function renderPerson(data) {
 async function loadPerson() {
   const params = new URLSearchParams(window.location.search);
   const personId = Number(params.get("id")) || 1;
-  const apiUrl = `${API_BASE}/api/person/${personId}`;
+  const personApiUrl = apiUrl(`/api/person/${personId}`);
   let data;
 
   try {
-    const response = await fetch(apiUrl);
+    const response = await fetch(personApiUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     console.log("Loaded data from API");
@@ -148,7 +266,7 @@ async function searchPerson() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/api/persons/search?q=${encodeURIComponent(query)}&limit=1`);
+    const response = await fetch(apiUrl(`/api/persons/search?q=${encodeURIComponent(query)}&limit=1`));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const results = await response.json();
     if (!results.length) {
@@ -169,6 +287,11 @@ async function searchPerson() {
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("searchBtn");
   const input = document.getElementById("searchInput");
+  const registerBtn = document.getElementById("registerBtn");
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const ragSendBtn = document.getElementById("sendRagBtn");
+  const ragInput = document.getElementById("ragQuery");
 
   btn.addEventListener("click", searchPerson);
   input.addEventListener("keydown", (event) => {
@@ -176,6 +299,19 @@ document.addEventListener("DOMContentLoaded", () => {
       searchPerson();
     }
   });
+
+  registerBtn.addEventListener("click", registerUser);
+  loginBtn.addEventListener("click", loginUser);
+  logoutBtn.addEventListener("click", logoutUser);
+  ragSendBtn.addEventListener("click", sendRagQuery);
+  ragInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendRagQuery();
+    }
+  });
+
+  updateAuthStatus(authToken ? "Авторизован (токен сохранен)" : "Не авторизован");
 
   loadPerson();
 });
