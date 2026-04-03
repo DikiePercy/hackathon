@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/adelete/hackathon/backend_cpp",
+  "command": "/usr/bin/c++  -I/home/adelete/hackathon/backend_cpp  -pthread -std=gnu++17 -o CMakeFiles/cpp_backend.dir/main.cpp.o -c /home/adelete/hackathon/backend_cpp/main.cpp",
+  "file": "/home/adelete/hackathon/backend_cpp/main.cpp",
+  "output": "CMakeFiles/cpp_backend.dir/main.cpp.o"
+}
+]

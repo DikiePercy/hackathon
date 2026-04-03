@@ -1,0 +1,6 @@
+CompileFlags:
+  Add: [-isystem, /usr/include/c++/v1, -isystem, /usr/local/include]
+  CompilationDatabase: .
+---
+Index:
+  Background: Build
