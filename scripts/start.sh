@@ -113,6 +113,7 @@ ensure_env_file() {
 SECRET_KEY=${secret_key}
 GEMINI_API_KEY=
 CORS_ALLOW_ORIGINS=http://localhost:8501,http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173
+DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
 DB_DATA_DIR=${REPO_ROOT}/runtime-data/postgres
 CHROMA_DATA_DIR=${REPO_ROOT}/runtime-data/chroma
 APP_DATA_DIR=${REPO_ROOT}/runtime-data/app

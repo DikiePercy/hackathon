@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ панель — Архив Памяти</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="images/iconic_biber.png">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9881;</span>
+        <a href="index.html" class="logo-text">АРХИВ ПАМЯТИ</a>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Главная</a>
+        <a href="list.html">База данных</a>
+        <a href="chat.html">Чат AI</a>
+        <a href="admin.html" class="nav-active">Админ</a>
+        <a href="about.html">О проекте</a>
+        <a href="contacts.html">Контакты</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="main-wrapper">
+    <main class="content">
+      <section class="biography-section">
+        <h2>Админ панель</h2>
+
+        <div class="admin-panel">
+          <h3>Вход администратора</h3>
+          <div class="admin-form-grid">
+            <input id="adminUser" type="text" placeholder="Логин">
+            <input id="adminPass" type="password" placeholder="Пароль">
+          </div>
+          <div class="admin-actions">
+            <button id="adminRegisterBtn" type="button">Регистрация</button>
+            <button id="adminLoginBtn" type="button">Войти</button>
+            <button id="adminLogoutBtn" type="button">Выйти</button>
+          </div>
+          <p id="adminStatus">Не авторизован</p>
+        </div>
+
+        <div class="admin-panel">
+          <h3>Импорт seed (JSON массив)</h3>
+          <input id="seedFile" type="file" accept="application/json,.json">
+          <div class="admin-actions">
+            <button id="seedImportBtn" type="button">Импортировать seed</button>
+          </div>
+        </div>
+
+        <div class="admin-panel">
+          <h3>Список карточек и удаление</h3>
+          <div class="admin-actions">
+            <button id="refreshCardsBtn" type="button">Обновить список</button>
+          </div>
+          <div id="adminCardsList" class="admin-cards-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <p>&copy; 2024 Архив Памяти</p>
+  </footer>
+
+  <script src="admin-script.js"></script>
+</body>
+</html>

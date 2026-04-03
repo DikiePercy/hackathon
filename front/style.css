@@ -132,6 +132,12 @@ img {
   text-decoration: none;
 }
 
+.header-nav a.nav-active {
+  color: #fff;
+  border-bottom: 2px solid #d4c8a8;
+  padding-bottom: 2px;
+}
+
 /* ===== HERO ===== */
 .hero {
   background: linear-gradient(180deg, #e8e2d4 0%, #f4f1ea 100%);
@@ -306,6 +312,99 @@ img {
   text-indent: 24px;
 }
 
+.admin-panel {
+  border: 1px solid #d5cdba;
+  border-radius: 6px;
+  background: #fff;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-panel h3 {
+  margin-bottom: 10px;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.admin-form-grid input,
+.admin-panel textarea,
+.admin-panel input[type="file"] {
+  width: 100%;
+  border: 1px solid #bcae94;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.admin-actions button,
+.admin-card-row button {
+  border: 1px solid #7a2020;
+  background: #7a2020;
+  color: #fff;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.admin-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e4dccd;
+  border-radius: 4px;
+  padding: 8px;
+  background: #faf8f2;
+}
+
+.chat-box {
+  min-height: 180px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid #d5cdba;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: #faf8f2;
+}
+
+.chat-line {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.chat-line.user {
+  background: #eee7d8;
+}
+
+.chat-line.assistant {
+  background: #e5efe4;
+}
+
+.chat-helper {
+  margin-bottom: 10px;
+  color: #555;
+}
+
 /* ===== SIDEBAR ===== */
 .sidebar {
   display: flex;
@@ -381,6 +480,9 @@ img {
   }
   .header-inner {
     flex-wrap: wrap;
+  }
+  .admin-form-grid {
+    grid-template-columns: 1fr;
   }
   .search-bar {
     order: 3;

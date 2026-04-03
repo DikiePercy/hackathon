@@ -116,6 +116,37 @@ def search_public_persons(
     ]
 
 
+@router.get("/api/persons")
+def list_public_persons(
+    q: Optional[str] = Query(None),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    query = db.query(PersonCard)
+    if q:
+        query = query.filter(PersonCard.name.ilike(f"%{q}%"))
+
+    rows = (
+        query.order_by(PersonCard.name.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        {
+            "id": row.id,
+            "full_name": row.name,
+            "birth_year": row.birth_year,
+            "death_year": row.death_year,
+            "occupation": row.category,
+            "region": row.region,
+        }
+        for row in rows
+    ]
+
+
 @router.get("/cards", response_model=List[PersonCardResponse])
 def list_cards(
     name: Optional[str] = Query(None),

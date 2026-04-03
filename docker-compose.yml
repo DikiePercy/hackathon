@@ -66,7 +66,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - CPP_BACKEND_URL=http://cpp_backend:8080
       - SECRET_KEY=${SECRET_KEY:-hackathon-secret-change-me}
-      - DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
+      - DATABASE_URL=${DATABASE_URL:-postgresql://hackathon:hackathon@db:5432/hackathon}
       - CHROMA_HOST=vector_db
       - CHROMA_PORT=8000
     volumes:

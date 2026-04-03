@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Чат с AI — Архив Памяти</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="images/iconic_biber.png">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9881;</span>
+        <a href="index.html" class="logo-text">АРХИВ ПАМЯТИ</a>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Главная</a>
+        <a href="list.html">База данных</a>
+        <a href="chat.html" class="nav-active">Чат AI</a>
+        <a href="admin.html">Админ</a>
+        <a href="about.html">О проекте</a>
+        <a href="contacts.html">Контакты</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="main-wrapper">
+    <main class="content">
+      <section class="biography-section">
+        <h2>Чат с нейросетью по архиву</h2>
+        <p class="chat-helper">Войдите в аккаунт, затем задайте вопрос по загруженным документам.</p>
+
+        <div class="admin-panel">
+          <h3>Авторизация</h3>
+          <div class="admin-form-grid">
+            <input id="loginUser" type="text" placeholder="Логин">
+            <input id="loginPass" type="password" placeholder="Пароль">
+          </div>
+          <div class="admin-actions">
+            <button id="registerBtn" type="button">Регистрация</button>
+            <button id="loginBtn" type="button">Войти</button>
+            <button id="logoutBtn" type="button">Выйти</button>
+          </div>
+          <p id="chatAuthStatus">Не авторизован</p>
+        </div>
+
+        <div class="admin-panel">
+          <h3>Диалог</h3>
+          <div id="chatMessages" class="chat-box"></div>
+          <textarea id="chatInput" rows="4" placeholder="Введите вопрос..."></textarea>
+          <div class="admin-actions">
+            <button id="sendChatBtn" type="button">Отправить</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <p>&copy; 2024 Архив Памяти</p>
+  </footer>
+
+  <script src="chat-script.js"></script>
+</body>
+</html>
