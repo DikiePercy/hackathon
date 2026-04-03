@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ИИ-ассистент — Архив памяти</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="images/iconic_biber.png">
+  <link rel="stylesheet" href="ai-chat.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9881;</span>
+        <span class="logo-text">АРХИВ ПАМЯТИ</span>
+      </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
+        <button type="button" id="searchBtn">Найти</button>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Главная</a>
+        <a href="list.html">База данных</a>
+        <a href="about.html">О проекте</a>
+        <a href="contacts.html">Контакты</a>
+      </nav>
+      <div id="authContainer"></div>
+    </div>
+  </header>
+
+  <main class="main-wrapper">
+    <div class="chat-container">
+      <div class="chat-header">
+        Диалог с ИИ-ассистентом (Gemini)
+      </div>
+      
+      <div class="chat-history" id="chatHistory">
+        <div class="message ai">
+          Здравствуйте. Я ИИ-ассистент проекта «Архив памяти». Напишите имя, фамилию или место, и я помогу найти информацию по архивным базам.
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="Введите ваш запрос здесь..." autocomplete="off">
+        <button id="sendBtn">Отправить</button>
+      </div>
+    </div>
+    <aside class="sidebar">
+      <div class="sidebar-box">
+        <h4>Ресурсы</h4>
+        <ul>
+          <li><a href="#">Архивные фонды</a></li>
+          <li><a href="#">Публикации</a></li>
+          <li><a href="#">Карта</a></li>
+          <li><a href="#">Методические материалы</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-box">
+        <h4>Статистика</h4>
+        <p class="sidebar-stat">Записей в базе: <strong>12 487</strong></p>
+        <p class="sidebar-stat">Документов: <strong>3 291</strong></p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="chat.js"></script>
+</body>
+</html>

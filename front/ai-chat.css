@@ -1,0 +1,82 @@
+/* Специфичные стили для чата */
+.chat-container {
+  max-width: 800px;
+  margin: 40px auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.chat-header {
+  background: #2b2b2b;
+  color: #fff;
+  padding: 15px 20px;
+  border-radius: 8px 8px 0 0;
+  font-family: serif;
+  font-size: 1.2rem;
+}
+
+.chat-history {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background-color: #fcfbf8; /* Легкий бежевый оттенок под стиль сайта */
+}
+
+.message {
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #e3eedd; /* Светло-зеленый для пользователя */
+  border-bottom-right-radius: 0;
+}
+
+.message.ai {
+  align-self: flex-start;
+  background-color: #eaeaea; /* Серый для ИИ */
+  border-bottom-left-radius: 0;
+  font-family: serif;
+}
+
+.chat-input-area {
+  display: flex;
+  padding: 15px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  border-radius: 0 0 8px 8px;
+}
+
+.chat-input-area input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.chat-input-area button {
+  margin-left: 10px;
+  padding: 0 20px;
+  background-color: #8c2a2a; /* Цвет кнопки "Найти" с главной страницы */
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.chat-input-area button:hover {
+  background-color: #6b1f1f;
+}

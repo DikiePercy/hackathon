@@ -158,6 +158,21 @@ img {
   gap: 28px;
 }
 
+/* Убираем стандартное подчеркивание ссылки для карточки */
+.hero-card.chat-link {
+  text-decoration: none !important;
+  color: inherit;
+  display: block;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* Эффект при наведении для интерактивности */
+.hero-card.chat-link:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
 .hero-card {
   background: #fff;
   border: 1px solid #d5cdba;
