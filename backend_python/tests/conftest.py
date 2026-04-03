@@ -1,4 +1,6 @@
 import os
+import sys
+from pathlib import Path
 from typing import Generator
 
 import pytest
@@ -12,6 +14,10 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("OPENAI_API_KEY", "")
+
+BACKEND_PYTHON_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_PYTHON_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_PYTHON_DIR))
 
 from database import Base, get_db  # noqa: E402
 from routers import auth_router, cards, rag  # noqa: E402
