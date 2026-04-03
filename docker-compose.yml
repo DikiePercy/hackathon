@@ -1,109 +1,75 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # PostgreSQL Database
   db:
-    image: postgres:15-alpine
-    container_name: hackathon_db
+    image: postgres:15
+    container_name: archive_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: hackathon
-      POSTGRES_PASSWORD: hackathon
-      POSTGRES_DB: hackathon
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      POSTGRES_USER: ${POSTGRES_USER:-archive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-archive}
+      POSTGRES_DB: ${POSTGRES_DB:-archive}
     ports:
       - "5432:5432"
-    networks:
-      - backend_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hackathon"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-archive} -d ${POSTGRES_DB:-archive}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ChromaDB Vector Database
-  vector_db:
+  vectordb:
     image: chromadb/chroma:latest
-    container_name: hackathon_vector_db
-    volumes:
-      - chroma_data:/chroma/chroma
+    container_name: archive_vectordb
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
     ports:
       - "8001:8000"
-    networks:
-      - backend_network
-    environment:
-      - IS_PERSISTENT=TRUE
+    volumes:
+      - chroma_data:/chroma/chroma
 
-  # C++ Backend (Text Processing)
   cpp_backend:
-    build:
-      context: ./backend_cpp
-      dockerfile: Dockerfile
-    container_name: hackathon_cpp_backend
+    build: ./backend_cpp
+    container_name: archive_cpp_backend
+    restart: unless-stopped
     ports:
       - "8080:8080"
-    networks:
-      - backend_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # Python Backend (API, RAG, Auth)
-  backend_python:
-    build:
-      context: ./backend_python
-      dockerfile: Dockerfile
-    container_name: hackathon_python_backend
+  python_backend:
+    build: ./backend_python
+    container_name: archive_python_backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
-    networks:
-      - backend_network
-      - frontend_network
     environment:
-      - DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
-      - SECRET_KEY=${SECRET_KEY?SECRET_KEY is required}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CPP_BACKEND_URL=http://cpp_backend:8080
-      - CHROMA_HOST=vector_db
-      - CHROMA_PORT=8000
-      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:8501,http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://archive:archive@db:5432/archive}
+      CPP_BACKEND_URL: http://cpp_backend:8080
+      CHROMA_HOST: vectordb
+      CHROMA_PORT: 8000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-change-me}
     depends_on:
       db:
         condition: service_healthy
       cpp_backend:
-        condition: service_healthy
-      vector_db:
         condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      vectordb:
+        condition: service_started
 
-  # Streamlit Frontend
   frontend:
-    build:
-      context: ./frontend_python
-      dockerfile: Dockerfile
-    container_name: hackathon_frontend
+    build: ./frontend_python
+    container_name: archive_frontend
+    restart: unless-stopped
     ports:
       - "8501:8501"
-    networks:
-      - frontend_network
     environment:
-      - BACKEND_URL=http://backend_python:8000
+      BACKEND_URL: http://python_backend:8000
     depends_on:
-      backend_python:
-        condition: service_healthy
+      python_backend:
+        condition: service_started
 
 volumes:
   postgres_data:
   chroma_data:
-
-networks:
-  backend_network:
-    driver: bridge
-  frontend_network:
-    driver: bridge

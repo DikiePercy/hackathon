@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from datetime import datetime
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://hackathon:hackathon@db:5432/hackathon")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://archive:archive@db:5432/archive")
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -41,6 +41,7 @@ class PersonCard(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=False)
+    content = Column(Text, nullable=False, default="")
     birth_year = Column(Integer, nullable=False, index=True)
     death_year = Column(Integer, nullable=True)
     region = Column(String, index=True, nullable=False)
