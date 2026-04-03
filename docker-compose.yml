@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # 1. PostgreSQL Database
   db:
     image: postgres:15-alpine
     container_name: hackathon_db
@@ -14,14 +14,14 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - backend_network
+      - hackathon_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U hackathon"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ChromaDB Vector Database
+  # 2. ChromaDB Vector Database
   vector_db:
     image: chromadb/chroma:latest
     container_name: hackathon_vector_db
@@ -30,59 +30,57 @@ services:
     ports:
       - "8001:8000"
     networks:
-      - backend_network
+      - hackathon_network
     environment:
       - IS_PERSISTENT=TRUE
 
-  # C++ Backend (Text Processing)
+  # 3. C++ Backend (Text Processing)
   cpp_backend:
-    build:
-      context: ./backend_cpp
-      dockerfile: Dockerfile
-    container_name: hackathon_cpp_backend
+    build: ./backend_cpp
+    container_name: hackathon_cpp
     ports:
       - "8080:8080"
     networks:
-      - backend_network
+      - hackathon_network
+    restart: unless-stopped
+    # ВАЖНО: Если в main.cpp еще нет эндпоинта GET /health, закомментируй эти 5 строк ниже,
+    # иначе healthcheck упадет и python_backend не запустится!
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Python Backend (API, RAG, Auth)
-  backend_python:
-    build:
-      context: ./backend_python
-      dockerfile: Dockerfile
-    container_name: hackathon_python_backend
+  # 4. Python Backend (FastAPI)
+  python_backend:
+    build: ./backend_python
+    container_name: hackathon_python
     ports:
       - "8000:8000"
-    networks:
-      - backend_network
-      - frontend_network
-    environment:
-      - DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
-      - SECRET_KEY=${SECRET_KEY?SECRET_KEY is required}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CPP_BACKEND_URL=http://cpp_backend:8080
-      - CHROMA_HOST=vector_db
-      - CHROMA_PORT=8000
-      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:8501,http://localhost:3000}
     depends_on:
       db:
         condition: service_healthy
       cpp_backend:
         condition: service_healthy
-      vector_db:
-        condition: service_started
+    networks:
+      - hackathon_network
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - CPP_BACKEND_URL=http://cpp_backend:8080
+      - SECRET_KEY=${SECRET_KEY:-hackathon-secret-change-me}
+      - DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
+      - CHROMA_HOST=vector_db
+      - CHROMA_PORT=8000
+    volumes:
+      - app_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 5
 
-  # Streamlit Frontend
+  # 5. Streamlit Frontend
   frontend:
     build:
       context: ./frontend_python
@@ -91,19 +89,18 @@ services:
     ports:
       - "8501:8501"
     networks:
-      - frontend_network
+      - hackathon_network
     environment:
-      - BACKEND_URL=http://backend_python:8000
+      - BACKEND_URL=http://python_backend:8000
     depends_on:
-      backend_python:
+      python_backend:
         condition: service_healthy
 
 volumes:
   postgres_data:
   chroma_data:
+  app_data: # Добавил этот volume, так как он используется в питоне
 
 networks:
-  backend_network:
-    driver: bridge
-  frontend_network:
+  hackathon_network:
     driver: bridge

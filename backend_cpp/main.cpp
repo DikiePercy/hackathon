@@ -1,5 +1,6 @@
 #include "third_party/httplib.h"
 #include "third_party/json.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -7,162 +8,174 @@
 
 using json = nlohmann::json;
 
-// Check if text is garbage (too many special characters or nonsense)
+namespace {
+
+bool is_text_like(unsigned char c) {
+    return std::isalnum(c) || c >= 128;
+}
+
 bool is_garbage(const std::string& text) {
-    if (text.empty()) return true;
-    
-    int letters_digits = 0;
-    int total_chars = 0;
-    int word_count = 0;
-    int word_length = 0;
-    int total_word_length = 0;
-    
-    for (char c : text) {
-        unsigned char uc = static_cast<unsigned char>(c);
-        if (std::isspace(uc)) {
-            if (word_length > 0) {
-                word_count++;
-                total_word_length += word_length;
-                word_length = 0;
-            }
-        } else {
-            total_chars++;
-            if (std::isalnum(uc)) {
-                letters_digits++;
-            }
-            word_length++;
-        }
-    }
-    
-    if (word_length > 0) {
-        word_count++;
-        total_word_length += word_length;
-    }
-    
-    if (total_chars == 0) return true;
-    
-    double letter_ratio = static_cast<double>(letters_digits) / total_chars;
-    double avg_word_length = word_count > 0 ? static_cast<double>(total_word_length) / word_count : 0;
-    
-    // If less than 70% letters/digits OR average word length > 20 => garbage
-    if (letter_ratio < 0.70 || avg_word_length > 20.0) {
+    if (text.empty()) {
         return true;
     }
-    
-    return false;
-}
 
-// Clean markdown formatting
-std::string clean_markdown(const std::string& text) {
-    std::string cleaned = text;
-    
-    // Remove common markdown symbols
-    std::string markdown_chars = "#*_~`>";
-    for (char c : markdown_chars) {
-        cleaned.erase(std::remove(cleaned.begin(), cleaned.end(), c), cleaned.end());
+    int letters_digits = 0;
+    int special_chars = 0;
+    bool has_space = false;
+
+    for (unsigned char c : text) {
+        if (std::isspace(c)) {
+            has_space = true;
+            continue;
+        }
+
+        if (is_text_like(c)) {
+            letters_digits++;
+        } else {
+            special_chars++;
+        }
     }
-    
-    // Replace multiple spaces with single space
-    auto new_end = std::unique(cleaned.begin(), cleaned.end(), 
-        [](char a, char b) { return std::isspace(a) && std::isspace(b); });
-    cleaned.erase(new_end, cleaned.end());
-    
-    return cleaned;
+
+    if (!has_space) {
+        return true;
+    }
+
+    return special_chars > letters_digits;
 }
 
-// Chunk text into pieces with overlap
+std::string clean_markdown(const std::string& text) {
+    std::string cleaned;
+    cleaned.reserve(text.size());
+
+    bool in_code_block = false;
+    bool line_start = true;
+
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (i + 2 < text.size() && text[i] == '`' && text[i + 1] == '`' && text[i + 2] == '`') {
+            in_code_block = !in_code_block;
+            i += 2;
+            continue;
+        }
+
+        if (in_code_block) {
+            continue;
+        }
+
+        char c = text[i];
+
+        if (line_start && (c == '#' || c == '-' || c == '*' || c == '>')) {
+            while (i < text.size() && (text[i] == '#' || text[i] == '-' || text[i] == '*' || text[i] == '>' || text[i] == ' ')) {
+                ++i;
+            }
+            if (i >= text.size()) {
+                break;
+            }
+            c = text[i];
+        }
+
+        if (c == '`' || c == '*' || c == '_' || c == '[' || c == ']') {
+            continue;
+        }
+
+        if (c == '\n' || c == '\r' || c == '\t') {
+            c = ' ';
+        }
+
+        cleaned.push_back(c);
+        line_start = (c == ' ');
+    }
+
+    std::string normalized;
+    normalized.reserve(cleaned.size());
+    bool prev_space = true;
+
+    for (unsigned char c : cleaned) {
+        if (std::isspace(c)) {
+            if (!prev_space) {
+                normalized.push_back(' ');
+            }
+            prev_space = true;
+        } else {
+            normalized.push_back(static_cast<char>(c));
+            prev_space = false;
+        }
+    }
+
+    if (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
 std::vector<std::string> chunk_text(const std::string& text, int chunk_size = 1000, int overlap = 100) {
     std::vector<std::string> chunks;
-    
-    if (text.empty()) return chunks;
-    
-    std::string cleaned = clean_markdown(text);
-    
-    int start = 0;
-    int text_length = cleaned.length();
-    
-    while (start < text_length) {
-        int end = std::min(start + chunk_size, text_length);
-        
-        // Try to break at word boundary
-        if (end < text_length) {
-            while (end > start && !std::isspace(static_cast<unsigned char>(cleaned[end]))) {
-                end--;
-            }
-            if (end == start) {
-                end = std::min(start + chunk_size, text_length);
-            }
-        }
-        
-        std::string chunk = cleaned.substr(start, end - start);
-        
-        // Trim whitespace
-        chunk.erase(0, chunk.find_first_not_of(" \n\r\t"));
-        chunk.erase(chunk.find_last_not_of(" \n\r\t") + 1);
-        
-        if (!chunk.empty()) {
-            chunks.push_back(chunk);
-        }
-        
-        int next_start = end - overlap;
-        if (next_start <= start) {
-            next_start = end;
-        }
-        start = next_start;
-        if (start < 0) start = 0;
-        if (start >= text_length) break;
+    if (text.empty()) {
+        return chunks;
     }
-    
+
+    const int n = static_cast<int>(text.size());
+    int start = 0;
+
+    while (start < n) {
+        int end = std::min(start + chunk_size, n);
+        int length = end - start;
+
+        if (length > 0) {
+            chunks.push_back(text.substr(start, length));
+        }
+
+        if (end == n) {
+            break;
+        }
+
+        start = end - overlap;
+        if (start < 0) {
+            start = 0;
+        }
+    }
+
     return chunks;
 }
 
+}  // namespace
+
 int main() {
-    httplib::Server svr;
-    
-    // Health check endpoint
-    svr.Get("/health", [](const httplib::Request&, httplib::Response& res) {
-        json response = {{"status", "ok"}};
-        res.set_content(response.dump(), "application/json");
-    });
-    
-    // Main processing endpoint
-    svr.Post("/process", [](const httplib::Request& req, httplib::Response& res) {
+    httplib::Server server;
+
+    server.Post("/process", [](const httplib::Request& req, httplib::Response& res) {
         try {
-            auto body = json::parse(req.body);
-            
-            if (!body.contains("text")) {
+            json body = json::parse(req.body);
+
+            if (!body.contains("text") || !body["text"].is_string()) {
                 res.status = 400;
-                json error = {{"error", "Missing 'text' field"}};
-                res.set_content(error.dump(), "application/json");
+                res.set_content(json{{"error", "Field 'text' is required and must be string"}}.dump(), "application/json");
                 return;
             }
-            
-            std::string text = body["text"];
-            
+
+            const std::string text = body["text"].get<std::string>();
+            const bool garbage = is_garbage(text);
+
             json response;
-            response["is_garbage"] = is_garbage(text);
-            
-            if (!response["is_garbage"]) {
-                int chunk_size = body.value("chunk_size", 1000);
-                int overlap = body.value("overlap", 100);
-                
-                auto chunks = chunk_text(text, chunk_size, overlap);
-                response["chunks"] = chunks;
-            } else {
+            response["is_garbage"] = garbage;
+
+            if (garbage) {
                 response["chunks"] = json::array();
+            } else {
+                const std::string cleaned = clean_markdown(text);
+                response["chunks"] = chunk_text(cleaned, 1000, 100);
             }
-            
+
             res.set_content(response.dump(), "application/json");
-            
+        } catch (const json::exception& e) {
+            res.status = 400;
+            res.set_content(json{{"error", std::string("Invalid JSON: ") + e.what()}}.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
-            json error = {{"error", e.what()}};
-            res.set_content(error.dump(), "application/json");
+            res.set_content(json{{"error", e.what()}}.dump(), "application/json");
         }
     });
-    
-    std::cout << "C++ Backend starting on 0.0.0.0:8080..." << std::endl;
-    svr.listen("0.0.0.0", 8080);
-    
+
+    server.listen("0.0.0.0", 8080);
     return 0;
 }

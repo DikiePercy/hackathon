@@ -4,9 +4,9 @@ from pydantic import BaseModel
 from typing import List
 import requests
 import os
-from database import get_db, User, ChatHistory, PersonCard
+from database import get_db, User, ChatHistory, PersonCard, Document, DocumentChunk
 from auth import get_current_user
-from rag_engine import add_documents_to_vector_db, search_documents, generate_answer
+from rag_engine import add_documents_to_vector_db, answer_with_rag
 import json
 
 router = APIRouter()
@@ -91,6 +91,11 @@ async def upload_document(
             detail="No valid content found in document"
         )
     
+    # Persist source document in SQL for auditability and future extensions.
+    document = Document(filename=file.filename, content=text)
+    db.add(document)
+    db.flush()
+
     # Add to vector database
     try:
         num_chunks = add_documents_to_vector_db(chunks, person_id, file.filename)
@@ -99,9 +104,20 @@ async def upload_document(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e)
         )
+
+    for idx, chunk_text in enumerate(chunks):
+        db.add(DocumentChunk(
+            document_id=document.id,
+            person_id=person_id,
+            chunk_text=chunk_text,
+            chunk_index=idx,
+        ))
+
+    db.commit()
     
     return {
         "message": "Document uploaded successfully",
+        "document_id": document.id,
         "person_id": person_id,
         "chunks_created": num_chunks
     }
@@ -114,36 +130,22 @@ def chat(
     current_user: User = Depends(get_current_user)
 ):
     query = chat_request.query
-    
-    # Search for relevant documents
+
     try:
-        search_results = search_documents(query, top_k=3)
+        rag_result = answer_with_rag(query, top_k=3)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e)
         )
-    
-    documents = search_results["documents"]
-    metadatas = search_results["metadatas"]
-    
-    if not documents:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No relevant information found"
-        )
-    
-    # Extract person_ids from metadata
-    person_ids = list(set([meta["person_id"] for meta in metadatas]))
-    
-    # Generate answer using LLM
-    try:
-        answer = generate_answer(query, documents)
-    except ValueError as e:
+    except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e)
         )
+
+    answer = rag_result["answer"]
+    person_ids = rag_result["sources"]
     
     # Save to chat history
     chat_entry = ChatHistory(
