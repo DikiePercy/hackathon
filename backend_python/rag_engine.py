@@ -4,14 +4,13 @@ from uuid import uuid4
 
 import chromadb
 from langchain.schema import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 CHROMA_PATH = os.getenv("CHROMA_PATH", "/app/chroma_db")
 CHROMA_HOST = os.getenv("CHROMA_HOST", "")
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
 CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "documents")
-OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 
 def _build_chroma_client() -> chromadb.ClientAPI:
@@ -34,18 +33,22 @@ def _get_collection() -> Any:
 
 
 collection = _get_collection()
-embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+embeddings = (
+    GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=GEMINI_API_KEY)
+    if GEMINI_API_KEY
+    else None
+)
 llm = (
-    ChatOpenAI(model=OPENAI_CHAT_MODEL, temperature=0, openai_api_key=OPENAI_API_KEY)
-    if OPENAI_API_KEY
+    ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3, google_api_key=GEMINI_API_KEY)
+    if GEMINI_API_KEY
     else None
 )
 
 
 def add_documents_to_vector_db(chunks: List[str], person_id: int, document_name: str = "") -> int:
     """Store chunks in Chroma with embeddings and person metadata."""
-    if not OPENAI_API_KEY or embeddings is None:
-        raise ValueError("OPENAI_API_KEY is not configured")
+    if not GEMINI_API_KEY or embeddings is None:
+        raise ValueError("GEMINI_API_KEY is not configured")
 
     normalized_chunks = [chunk.strip() for chunk in chunks if chunk and chunk.strip()]
     if not normalized_chunks:
@@ -82,8 +85,8 @@ def add_documents_to_vector_db(chunks: List[str], person_id: int, document_name:
 
 def search_documents(query: str, top_k: int = 3) -> Dict[str, List[Any]]:
     """Run vector similarity search and return documents + metadatas."""
-    if not OPENAI_API_KEY or embeddings is None:
-        raise ValueError("OPENAI_API_KEY is not configured")
+    if not GEMINI_API_KEY or embeddings is None:
+        raise ValueError("GEMINI_API_KEY is not configured")
 
     if not query or not query.strip():
         raise ValueError("Query must not be empty")
@@ -102,8 +105,8 @@ def search_documents(query: str, top_k: int = 3) -> Dict[str, List[Any]]:
 
 def generate_answer(query: str, context_docs: List[str], language: str = "") -> str:
     """Generate a strict context-only answer for a user query."""
-    if not OPENAI_API_KEY or llm is None:
-        raise ValueError("OPENAI_API_KEY is not configured")
+    if not GEMINI_API_KEY or llm is None:
+        raise ValueError("GEMINI_API_KEY is not configured")
 
     if not context_docs:
         return "Недостаточно данных в контексте, чтобы ответить на вопрос."

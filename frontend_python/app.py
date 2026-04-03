@@ -1,10 +1,11 @@
 import streamlit as st
 import requests
 import json
+import os
 from typing import Optional
 
 # Configuration
-BACKEND_URL = "http://backend_python:8000"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://python_backend:8000")
 
 # Initialize session state
 if "token" not in st.session_state:

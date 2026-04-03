@@ -9,6 +9,7 @@ python-multipart==0.0.20
 requests==2.33.1
 langchain==0.3.28
 langchain-openai==0.3.35
+langchain-google-genai==2.0.8
 langchain-community==0.3.31
 chromadb==0.5.23
 pydantic==2.10.4
