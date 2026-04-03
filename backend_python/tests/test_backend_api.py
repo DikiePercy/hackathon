@@ -1,4 +1,6 @@
 from fastapi.testclient import TestClient
+import io
+import json
 
 
 def register_and_login(client: TestClient, username: str = "tester", password: str = "test123") -> str:
@@ -144,3 +146,109 @@ def test_seed_import_skips_duplicates(client: TestClient):
     assert body["created"] == 1
     assert body["skipped_duplicates"] == 1
     assert body["total"] == 2
+
+
+def test_create_card_accepts_minimal_payload_for_frontend_compat(client: TestClient):
+    token = register_and_login(client, username="frontend-user")
+
+    response = client.post(
+        "/cards",
+        headers=auth_headers(token),
+        json={
+            "name": "Frontend Compatible Card",
+            "category": "Teacher",
+            "description": "Created with minimal payload",
+            "lat": None,
+            "lon": None,
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["name"] == "Frontend Compatible Card"
+    assert body["birth_year"] == 1900
+    assert body["region"] == "Unknown"
+    assert body["charge"] == "Unknown"
+
+
+def test_import_persons_file_endpoint_supports_seed_json_shape(client: TestClient):
+    token = register_and_login(client, username="import-user")
+
+    payload = [
+        {
+            "id": 1,
+            "full_name": "Asan Seed",
+            "birth_year": 1899,
+            "death_year": 1937,
+            "region": "Chui",
+            "occupation": "Teacher",
+            "charge": "58-10",
+            "biography": "Bio 1",
+            "source": "Archive A",
+        },
+        {
+            "id": 2,
+            "full_name": "Asan Seed",
+            "birth_year": 1899,
+            "death_year": 1938,
+            "region": "Chui",
+            "occupation": "Teacher",
+            "charge": "58-10",
+            "biography": "Bio duplicate",
+            "source": "Archive B",
+        },
+    ]
+
+    files = {
+        "file": ("seed.json", io.BytesIO(json.dumps(payload).encode("utf-8")), "application/json")
+    }
+    response = client.post(
+        "/api/persons/import",
+        headers=auth_headers(token),
+        files=files,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["imported"] == 1
+    assert body["skipped_duplicates"] == 1
+    assert body["total"] == 2
+
+
+def test_persons_alphabetical_returns_frontend_shape(client: TestClient):
+    token = register_and_login(client, username="alphabet-user")
+
+    payload = [
+        {
+            "full_name": "Askar T",
+            "birth_year": 1901,
+            "region": "Osh",
+            "occupation": "Journalist",
+            "charge": "58-10",
+            "biography": "Bio",
+        },
+        {
+            "full_name": "Bakyt K",
+            "birth_year": 1902,
+            "region": "Chui",
+            "occupation": "Teacher",
+            "charge": "58-10",
+            "biography": "Bio",
+        },
+    ]
+
+    response_import = client.post(
+        "/cards/import/seed",
+        headers=auth_headers(token),
+        json=payload,
+    )
+    assert response_import.status_code == 200
+
+    response = client.get("/api/persons/alphabetical", headers=auth_headers(token))
+    assert response.status_code == 200
+    body = response.json()
+
+    assert "A" in body
+    assert "B" in body
+    assert body["A"][0]["full_name"] == "Askar T"
+    assert body["B"][0]["full_name"] == "Bakyt K"

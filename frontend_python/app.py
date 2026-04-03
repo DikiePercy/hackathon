@@ -72,7 +72,7 @@ def get_cards(name: Optional[str] = None, category: Optional[str] = None):
             params["name"] = name
         if category:
             params["category"] = category
-        
+
         response = requests.get(
             f"{BACKEND_URL}/cards",
             headers=get_headers(),
@@ -135,6 +135,21 @@ def upload_document(file, person_id: int):
     return False
 
 
+def get_alphabetical_index():
+    """Fetch persons grouped by first letter."""
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/api/persons/alphabetical",
+            headers=get_headers(),
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Ошибка загрузки: {str(e)}")
+    return {}
+
+
 def chat(query: str):
     """Send chat message"""
     try:
@@ -161,7 +176,7 @@ st.title("📚 Archive Search - RAG System")
 # Sidebar for auth
 with st.sidebar:
     st.header("Authentication")
-    
+
     if st.session_state.token:
         st.success(f"Logged in as: {st.session_state.username}")
         if st.button("Logout"):
@@ -169,7 +184,7 @@ with st.sidebar:
             st.rerun()
     else:
         tab1, tab2 = st.tabs(["Login", "Register"])
-        
+
         with tab1:
             login_username = st.text_input("Username", key="login_user")
             login_password = st.text_input("Password", type="password", key="login_pass")
@@ -177,7 +192,7 @@ with st.sidebar:
                 if login(login_username, login_password):
                     st.success("Login successful!")
                     st.rerun()
-        
+
         with tab2:
             reg_username = st.text_input("Username", key="reg_user")
             reg_password = st.text_input("Password", type="password", key="reg_pass")
@@ -187,12 +202,12 @@ with st.sidebar:
 
 # Main content
 if st.session_state.token:
-    tab1, tab2, tab3 = st.tabs(["💬 Chat", "📁 Documents", "👤 Person Cards"])
-    
+    tab1, tab2, tab3, tab4 = st.tabs(["💬 Chat", "📁 Documents", "👤 Person Cards", "🔤 А–Я"])
+
     # Chat Tab
     with tab1:
         st.header("Chat with Archives")
-        
+
         # Display chat history
         for msg in st.session_state.chat_history:
             with st.chat_message("user"):
@@ -201,50 +216,50 @@ if st.session_state.token:
                 st.write(msg["answer"])
                 if msg.get("sources"):
                     st.caption(f"Sources: Person IDs {msg['sources']}")
-        
+
         # Chat input
         user_query = st.chat_input("Ask a question about the archives...")
         if user_query:
             with st.chat_message("user"):
                 st.write(user_query)
-            
+
             with st.spinner("Thinking..."):
                 response = chat(user_query)
-                
+
             if response:
                 with st.chat_message("assistant"):
                     st.write(response["answer"])
                     if response.get("sources"):
                         st.caption(f"Sources: Person IDs {response['sources']}")
-                
+
                 st.session_state.chat_history.append({
                     "query": user_query,
                     "answer": response["answer"],
                     "sources": response.get("sources", [])
                 })
-    
+
     # Documents Tab
     with tab2:
         st.header("Upload Documents")
-        
+
         cards = get_cards()
         if cards:
             card_options = {f"{card['name']} ({card['category']})": card['id'] for card in cards}
             selected_card = st.selectbox("Select Person Card", options=list(card_options.keys()))
-            
+
             uploaded_file = st.file_uploader("Choose a text or markdown file", type=["txt", "md"])
-            
+
             if st.button("Upload Document"):
                 if uploaded_file and selected_card:
                     person_id = card_options[selected_card]
                     upload_document(uploaded_file, person_id)
         else:
             st.info("No person cards available. Create one first!")
-    
+
     # Person Cards Tab
     with tab3:
         st.header("Person Cards")
-        
+
         # Create new card
         with st.expander("Create New Card"):
             col1, col2 = st.columns(2)
@@ -254,16 +269,16 @@ if st.session_state.token:
             with col2:
                 new_lat = st.number_input("Latitude", value=None, format="%.6f")
                 new_lon = st.number_input("Longitude", value=None, format="%.6f")
-            
+
             new_description = st.text_area("Description")
-            
+
             if st.button("Create Card"):
                 if new_name and new_category:
                     create_card(new_name, new_category, new_description, new_lat, new_lon)
                     st.rerun()
                 else:
                     st.error("Name and category are required")
-        
+
         # Filter and display cards
         st.subheader("Existing Cards")
         col1, col2 = st.columns(2)
@@ -271,9 +286,9 @@ if st.session_state.token:
             filter_name = st.text_input("Filter by name", key="filter_name")
         with col2:
             filter_category = st.text_input("Filter by category", key="filter_category")
-        
+
         cards = get_cards(name=filter_name or None, category=filter_category or None)
-        
+
         if cards:
             for card in cards:
                 with st.container():
@@ -285,6 +300,69 @@ if st.session_state.token:
                     st.divider()
         else:
             st.info("No cards found")
+
+    # Alphabetical Index Tab
+    with tab4:
+        st.header("Алфавитный указатель репрессированных")
+
+        index = get_alphabetical_index()
+
+        if not index:
+            st.info("Данные не загружены. Импортируйте seed.json через /api/persons/import")
+        else:
+            letters = list(index.keys())
+            total = sum(len(v) for v in index.values())
+            st.caption(f"Всего записей: {total} · Букв: {len(letters)}")
+
+            # ── Letter navigation bar ──────────────────────────────────────
+            letter_cols = st.columns(min(len(letters), 10))
+            for i, letter in enumerate(letters):
+                col = letter_cols[i % 10]
+                col.markdown(
+                    f"<a href='#{letter.lower()}' style='text-decoration:none;'>"
+                    f"<button style='width:100%;padding:4px;border-radius:6px;"
+                    f"background:#1f4e79;color:white;border:none;cursor:pointer;"
+                    f"font-weight:bold;font-size:16px'>{letter}</button></a>",
+                    unsafe_allow_html=True,
+                )
+
+            st.divider()
+
+            # ── Filter ─────────────────────────────────────────────────────
+            search_q = st.text_input("🔍 Поиск по имени или профессии", placeholder="Байтемиров...")
+
+            # ── Cards per letter ───────────────────────────────────────────
+            for letter, persons in index.items():
+                # Apply search filter
+                if search_q:
+                    persons = [
+                        p for p in persons
+                        if search_q.lower() in p["full_name"].lower()
+                           or search_q.lower() in (p.get("occupation") or "").lower()
+                    ]
+                if not persons:
+                    continue
+
+                st.markdown(
+                    f"<h3 id='{letter.lower()}' style='color:#1f4e79;border-bottom:2px solid #1f4e79;"
+                    f"padding-bottom:4px;margin-top:24px'>{letter} <span style='font-size:14px;"
+                    f"color:#888;font-weight:normal'>({len(persons)})</span></h3>",
+                    unsafe_allow_html=True,
+                )
+
+                for p in persons:
+                    years = f"{p['birth_year'] or '?'} – {p['death_year'] or 'неизв.'}"
+                    rehab = p.get("rehabilitation_date") or "—"
+                    sentence = p.get("sentence") or "—"
+
+                    with st.expander(f"**{p['full_name']}** &nbsp;·&nbsp; {p.get('occupation', '—')} &nbsp;·&nbsp; {years}"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown(f"**Регион:** {p.get('region', '—')}")
+                            st.markdown(f"**Приговор:** {sentence}")
+                        with col2:
+                            st.markdown(f"**Реабилитирован:** {rehab}")
+                            st.markdown(f"**ID:** {p['id']}")
 
 else:
     st.info("👈 Please login or register to use the system")
