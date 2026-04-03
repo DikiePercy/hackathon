@@ -1,35 +1,28 @@
-// document.addEventListener("DOMContentLoaded", () => {
-//     // Данные для статистики
-//     const statsData = [
-//         { number: "48 291", label: "Записей в базе" },
-//         { number: "12 750", label: "Документов оцифровано" },
-//         { number: "37", label: "Регионов охвачено" }
-//     ];
+const partnersGrid = document.getElementById('partners-grid');
+    const statsGrid = document.getElementById('stats-grid');
 
-//     // Данные для партнеров
-//     const partnersData = [
-//         "Государственный архив РФ", "Мемориал", "Сахаровский центр",
-//         "РГАСПИ", "Яд Вашем", "Национальный архив РК"
-//     ];
+    if (partnersGrid && statsGrid) {
+        const partners = ["Государственный архив РФ", "Мемориал", "Сахаровский центр", "РГАСПИ", "Яд Вашем", "Национальный архив РК"];
+        //Добавьте статистику в массив stats из бекенда
+        const stats = [
+            { n: "48 291", l: "Записей в базе" },
+            { n: "12 750", l: "Документов оцифровано" },
+            { n: "37", l: "Регионов охвачено" }
+        ];
 
-//     // Рендерим статистику
-//     const statsList = document.getElementById('stats-list');
-//     statsData.forEach(item => {
-//         const div = document.createElement('div');
-//         div.className = 'archive-stat-block';
-//         div.innerHTML = `
-//             <div class="archive-stat-number">${item.number}</div>
-//             <div style="font-size: 0.8rem; opacity: 0.8">${item.label}</div>
-//         `;
-//         statsList.appendChild(div);
-//     });
+        partners.forEach(p => {
+            partnersGrid.innerHTML += `
+                <div class="about-card">
+                    <div class="partner-icon">🏛</div>
+                    <div class="partner-name">${p}</div>
+                </div>`;
+        });
 
-//     // Рендерим партнеров
-//     const partnersList = document.getElementById('partners-list');
-//     partnersData.forEach(name => {
-//         const div = document.createElement('div');
-//         div.className = 'partner-item';
-//         div.innerHTML = `<div style="font-size: 1.5rem; margin-bottom: 5px">🏛️</div> ${name}`;
-//         partnersList.appendChild(div);
-//     });
-// });
+        stats.forEach(s => {
+            statsGrid.innerHTML += `
+                <div class="about-card">
+                    <div class="stat-number">${s.n}</div>
+                    <div class="stat-label">${s.l}</div>
+                </div>`;
+        });
+    }
