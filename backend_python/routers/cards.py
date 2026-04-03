@@ -62,6 +62,60 @@ def _normalize_card_payload(card_data: PersonCardCreate) -> dict:
     return payload
 
 
+def _to_public_person(card: PersonCard) -> dict:
+    return {
+        "id": card.id,
+        "full_name": card.name,
+        "birth_year": card.birth_year,
+        "death_year": card.death_year,
+        "nationality": None,
+        "occupation": card.category,
+        "arrest_date": None,
+        "sentence": card.charge,
+        "sentence_date": None,
+        "rehabilitation_date": None,
+        "biography": card.description or card.content or "",
+        "photo_url": "https://via.placeholder.com/250x350.png?text=Portrait",
+        "documents": [],
+    }
+
+
+@router.get("/api/person/{person_id}")
+def get_public_person(person_id: int, db: Session = Depends(get_db)) -> dict:
+    card = db.query(PersonCard).filter(PersonCard.id == person_id).first()
+    if not card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Person not found"
+        )
+    return _to_public_person(card)
+
+
+@router.get("/api/persons/search")
+def search_public_persons(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    rows = (
+        db.query(PersonCard)
+        .filter(PersonCard.name.ilike(f"%{q}%"))
+        .order_by(PersonCard.name.asc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": row.id,
+            "full_name": row.name,
+            "birth_year": row.birth_year,
+            "death_year": row.death_year,
+            "occupation": row.category,
+        }
+        for row in rows
+    ]
+
+
 @router.get("/cards", response_model=List[PersonCardResponse])
 def list_cards(
     name: Optional[str] = Query(None),

@@ -252,3 +252,40 @@ def test_persons_alphabetical_returns_frontend_shape(client: TestClient):
     assert "B" in body
     assert body["A"][0]["full_name"] == "Askar T"
     assert body["B"][0]["full_name"] == "Bakyt K"
+
+
+def test_public_person_endpoint_returns_static_front_shape(client: TestClient):
+    token = register_and_login(client, username="public-person-user")
+
+    create_response = client.post(
+        "/cards",
+        headers=auth_headers(token),
+        json=valid_card_payload(name="Public Person", birth_year=1904),
+    )
+    assert create_response.status_code == 201
+    card_id = create_response.json()["id"]
+
+    response = client.get(f"/api/person/{card_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == card_id
+    assert body["full_name"] == "Public Person"
+    assert "biography" in body
+    assert "documents" in body
+
+
+def test_public_persons_search_endpoint_is_unauthenticated(client: TestClient):
+    token = register_and_login(client, username="public-search-user")
+
+    response_create = client.post(
+        "/cards",
+        headers=auth_headers(token),
+        json=valid_card_payload(name="Searchable Person", birth_year=1910),
+    )
+    assert response_create.status_code == 201
+
+    response = client.get("/api/persons/search", params={"q": "searchable", "limit": 5})
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) >= 1
+    assert body[0]["full_name"] == "Searchable Person"

@@ -143,6 +143,10 @@ std::vector<std::string> chunk_text(const std::string& text, int chunk_size = 10
 int main() {
     httplib::Server server;
 
+    server.Get("/health", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(json{{"status", "ok"}}.dump(), "application/json");
+    });
+
     server.Post("/process", [](const httplib::Request& req, httplib::Response& res) {
         try {
             json body = json::parse(req.body);
