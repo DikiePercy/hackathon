@@ -128,6 +128,20 @@ APP_DATA_DIR=${REPO_ROOT}/runtime-data/app
 EOF
 }
 
+normalize_project_layout() {
+  # Common zip variant: backend-cpp instead of backend_cpp
+  if [[ ! -e "$REPO_ROOT/backend_cpp" && -d "$REPO_ROOT/backend-cpp" ]]; then
+    log "Detected backend-cpp folder, creating compatibility symlink backend_cpp -> backend-cpp"
+    ln -s "backend-cpp" "$REPO_ROOT/backend_cpp"
+  fi
+
+  # Optional compatibility for html frontend naming.
+  if [[ ! -e "$REPO_ROOT/front" && -d "$REPO_ROOT/frontend_html" ]]; then
+    log "Detected frontend_html folder, creating compatibility symlink front -> frontend_html"
+    ln -s "frontend_html" "$REPO_ROOT/front"
+  fi
+}
+
 ensure_required_files() {
   local required_files=(
     "$REPO_ROOT/docker-compose.yml"
@@ -152,6 +166,31 @@ ensure_required_files() {
   fi
 }
 
+cleanup_container_name_conflicts() {
+  # docker-compose.yml uses fixed container names; remove stale containers with those names.
+  local fixed_names=(
+    hackathon_db
+    hackathon_vector_db
+    hackathon_cpp
+    hackathon_python
+    hackathon_frontend
+    hackathon_web
+  )
+
+  local has_conflicts=0
+  for name in "${fixed_names[@]}"; do
+    if docker ps -a --format '{{.Names}}' | grep -Fxq "$name"; then
+      has_conflicts=1
+      log "Removing conflicting container name: $name"
+      docker rm -f "$name" >/dev/null 2>&1 || true
+    fi
+  done
+
+  if [[ "$has_conflicts" -eq 1 ]]; then
+    log "Container name conflicts cleared"
+  fi
+}
+
 compose_cmd() {
   if docker compose version >/dev/null 2>&1; then
     docker compose "$@"
@@ -170,7 +209,9 @@ compose_cmd() {
 ensure_prerequisites
 require_cmd docker
 ensure_env_file
+normalize_project_layout
 ensure_required_files
+cleanup_container_name_conflicts
 
 set -a
 # shellcheck disable=SC1091

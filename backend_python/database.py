@@ -9,8 +9,10 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Index,
+    Date,
 )
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
+from sqlalchemy import inspect, text
 from datetime import datetime
 import os
 
@@ -27,9 +29,11 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
+    role = Column(String, nullable=False, default="user", server_default="user")
     
     chat_history = relationship("ChatHistory", back_populates="user")
     revisions = relationship("PersonRevision", back_populates="author")
+    suggestions = relationship("PersonSuggestion", back_populates="author", foreign_keys="PersonSuggestion.author_id")
 
 
 class PersonCard(Base):
@@ -46,7 +50,14 @@ class PersonCard(Base):
     death_year = Column(Integer, nullable=True)
     region = Column(String, index=True, nullable=False)
     category = Column(String, index=True, nullable=True)
+    nationality = Column(String, nullable=True)
+    district = Column(String, nullable=True)
     charge = Column(Text, nullable=False)
+    sentence = Column(Text, nullable=True)
+    arrest_date = Column(Date, nullable=True)
+    sentence_date = Column(Date, nullable=True)
+    rehabilitation_date = Column(Date, nullable=True)
+    status = Column(String, nullable=True)
     description = Column(Text, nullable=False)
     source = Column(Text, nullable=True)
     lat = Column(Float, nullable=True)
@@ -116,6 +127,41 @@ class ChatHistory(Base):
     user = relationship("User", back_populates="chat_history")
 
 
+class PersonSuggestion(Base):
+    __tablename__ = "person_suggestions"
+    __table_args__ = (
+        Index("ix_person_suggestions_state_created", "state", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    full_name = Column(String, nullable=False, index=True)
+    birth_year = Column(Integer, nullable=False, default=1900)
+    death_year = Column(Integer, nullable=True)
+    nationality = Column(String, nullable=True)
+    region = Column(String, nullable=False, default="Unknown")
+    district = Column(String, nullable=True)
+    occupation = Column(String, nullable=True)
+    charge = Column(Text, nullable=False, default="Unknown")
+    sentence = Column(Text, nullable=True)
+    arrest_date = Column(Date, nullable=True)
+    sentence_date = Column(Date, nullable=True)
+    rehabilitation_date = Column(Date, nullable=True)
+    biography = Column(Text, nullable=False, default="")
+    source = Column(Text, nullable=True)
+    status = Column(String, nullable=True)
+
+    state = Column(String, nullable=False, default="pending", server_default="pending")
+    moderation_comment = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    moderated_at = Column(DateTime, nullable=True)
+    moderated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    author = relationship("User", foreign_keys=[author_id], back_populates="suggestions")
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -126,3 +172,33 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _apply_lightweight_migrations()
+
+
+def _apply_lightweight_migrations() -> None:
+    """Best-effort additive migrations for already existing deployments."""
+    inspector = inspect(engine)
+
+    if inspector.has_table("users"):
+        _ensure_column("users", "role", "VARCHAR", default="'user'")
+
+    if inspector.has_table("person_cards"):
+        _ensure_column("person_cards", "nationality", "VARCHAR")
+        _ensure_column("person_cards", "district", "VARCHAR")
+        _ensure_column("person_cards", "sentence", "TEXT")
+        _ensure_column("person_cards", "arrest_date", "DATE")
+        _ensure_column("person_cards", "sentence_date", "DATE")
+        _ensure_column("person_cards", "rehabilitation_date", "DATE")
+        _ensure_column("person_cards", "status", "VARCHAR")
+
+
+def _ensure_column(table_name: str, column_name: str, sql_type: str, default: str | None = None) -> None:
+    inspector = inspect(engine)
+    existing = {c["name"] for c in inspector.get_columns(table_name)}
+    if column_name in existing:
+        return
+
+    default_clause = f" DEFAULT {default}" if default is not None else ""
+    statement = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sql_type}{default_clause}"
+    with engine.begin() as conn:
+        conn.execute(text(statement))

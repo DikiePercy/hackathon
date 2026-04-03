@@ -1,12 +1,14 @@
 import json
 from collections import defaultdict
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db, PersonCard, User
-from auth import get_current_user
+from auth import require_admin
 
 router = APIRouter()
 
@@ -15,11 +17,18 @@ class PersonCardCreate(BaseModel):
     name: str
     birth_year: Optional[int] = 1900
     death_year: Optional[int] = None
+    nationality: Optional[str] = None
     region: Optional[str] = "Unknown"
+    district: Optional[str] = None
     category: Optional[str] = None
     charge: Optional[str] = "Unknown"
+    sentence: Optional[str] = None
+    arrest_date: Optional[date] = None
+    sentence_date: Optional[date] = None
+    rehabilitation_date: Optional[date] = None
     description: Optional[str] = ""
     source: Optional[str] = None
+    status: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
 
@@ -29,11 +38,18 @@ class PersonCardResponse(BaseModel):
     name: str
     birth_year: int
     death_year: Optional[int]
+    nationality: Optional[str]
     region: str
+    district: Optional[str]
     category: Optional[str]
     charge: str
+    sentence: Optional[str]
+    arrest_date: Optional[date]
+    sentence_date: Optional[date]
+    rehabilitation_date: Optional[date]
     description: str
     source: Optional[str]
+    status: Optional[str]
     lat: Optional[float]
     lon: Optional[float]
     
@@ -46,11 +62,18 @@ class SeedPersonCard(BaseModel):
     full_name: str
     birth_year: Optional[int] = None
     death_year: Optional[int] = None
+    nationality: Optional[str] = None
     region: Optional[str] = None
+    district: Optional[str] = None
     occupation: Optional[str] = None
     charge: Optional[str] = None
+    sentence: Optional[str] = None
+    arrest_date: Optional[date] = None
+    sentence_date: Optional[date] = None
+    rehabilitation_date: Optional[date] = None
     biography: Optional[str] = None
     source: Optional[str] = None
+    status: Optional[str] = None
 
 
 def _normalize_card_payload(card_data: PersonCardCreate) -> dict:
@@ -68,14 +91,14 @@ def _to_public_person(card: PersonCard) -> dict:
         "full_name": card.name,
         "birth_year": card.birth_year,
         "death_year": card.death_year,
-        "nationality": None,
+        "nationality": card.nationality,
         "occupation": card.category,
-        "arrest_date": None,
-        "sentence": card.charge,
-        "sentence_date": None,
-        "rehabilitation_date": None,
+        "arrest_date": card.arrest_date,
+        "sentence": card.sentence or card.charge,
+        "sentence_date": card.sentence_date,
+        "rehabilitation_date": card.rehabilitation_date,
         "biography": card.description or card.content or "",
-        "photo_url": "https://via.placeholder.com/250x350.png?text=Portrait",
+        "photo_url": "https://via.placeholder.com/250x350.png?text=Archive",
         "documents": [],
     }
 
@@ -97,9 +120,17 @@ def search_public_persons(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> list[dict]:
+    term = q.strip()
     rows = (
         db.query(PersonCard)
-        .filter(PersonCard.name.ilike(f"%{q}%"))
+        .filter(
+            or_(
+                PersonCard.name.ilike(f"%{term}%"),
+                PersonCard.region.ilike(f"%{term}%"),
+                PersonCard.category.ilike(f"%{term}%"),
+                PersonCard.charge.ilike(f"%{term}%"),
+            )
+        )
         .order_by(PersonCard.name.asc())
         .limit(limit)
         .all()
@@ -125,7 +156,15 @@ def list_public_persons(
 ) -> list[dict]:
     query = db.query(PersonCard)
     if q:
-        query = query.filter(PersonCard.name.ilike(f"%{q}%"))
+        term = q.strip()
+        query = query.filter(
+            or_(
+                PersonCard.name.ilike(f"%{term}%"),
+                PersonCard.region.ilike(f"%{term}%"),
+                PersonCard.category.ilike(f"%{term}%"),
+                PersonCard.charge.ilike(f"%{term}%"),
+            )
+        )
 
     rows = (
         query.order_by(PersonCard.name.asc())
@@ -140,8 +179,11 @@ def list_public_persons(
             "full_name": row.name,
             "birth_year": row.birth_year,
             "death_year": row.death_year,
+            "nationality": row.nationality,
             "occupation": row.category,
             "region": row.region,
+            "district": row.district,
+            "charge": row.charge,
         }
         for row in rows
     ]
@@ -154,7 +196,7 @@ def list_cards(
     region: Optional[str] = Query(None),
     birth_year: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     query = db.query(PersonCard)
     
@@ -175,7 +217,7 @@ def list_cards(
 def get_card(
     card_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
@@ -190,7 +232,7 @@ def get_card(
 def create_card(
     card_data: PersonCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     payload = _normalize_card_payload(card_data)
     duplicate = db.query(PersonCard).filter(
@@ -215,7 +257,7 @@ def update_card(
     card_id: int,
     card_data: PersonCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     payload = _normalize_card_payload(card_data)
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
@@ -248,7 +290,7 @@ def update_card(
 def delete_card(
     card_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
@@ -266,7 +308,7 @@ def delete_card(
 def import_cards(
     cards_data: List[PersonCardCreate],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     created = 0
     skipped_duplicates = 0
@@ -303,7 +345,7 @@ def import_cards(
 def import_seed_cards(
     cards_data: List[SeedPersonCard],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     created = 0
     skipped_duplicates = 0
@@ -325,13 +367,20 @@ def import_seed_cards(
 
         db.add(PersonCard(
             name=item.full_name,
-            birth_year=item.birth_year,
+            birth_year=item.birth_year or 1900,
             death_year=item.death_year,
+            nationality=item.nationality,
             region=item.region,
+            district=item.district,
             category=item.occupation,
             charge=item.charge,
+            sentence=item.sentence,
+            arrest_date=item.arrest_date,
+            sentence_date=item.sentence_date,
+            rehabilitation_date=item.rehabilitation_date,
             description=item.biography,
             source=item.source,
+            status=item.status,
             lat=None,
             lon=None,
         ))
@@ -350,7 +399,7 @@ def import_seed_cards(
 async def import_persons_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
     content = await file.read()
     try:
@@ -384,11 +433,18 @@ async def import_persons_file(
             name=seed.full_name,
             birth_year=seed.birth_year or 1900,
             death_year=seed.death_year,
+            nationality=seed.nationality,
             region=seed.region or "Unknown",
+            district=seed.district,
             category=seed.occupation,
             charge=seed.charge or "Unknown",
+            sentence=seed.sentence,
+            arrest_date=seed.arrest_date,
+            sentence_date=seed.sentence_date,
+            rehabilitation_date=seed.rehabilitation_date,
             description=seed.biography or "",
             source=seed.source,
+            status=seed.status,
             lat=None,
             lon=None,
         ))
@@ -401,8 +457,7 @@ async def import_persons_file(
 
 @router.get("/api/persons/alphabetical")
 def persons_alphabetical(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     rows = db.query(PersonCard).order_by(PersonCard.name.asc()).all()
     index = defaultdict(list)

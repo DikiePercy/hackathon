@@ -1,42 +1,3 @@
-const ADMIN_TOKEN_KEY = "archive_admin_token";
-
-function getCookie(name) {
-  const encoded = encodeURIComponent(name) + "=";
-  const parts = document.cookie.split(";");
-  for (const part of parts) {
-    const item = part.trim();
-    if (item.startsWith(encoded)) {
-      return decodeURIComponent(item.slice(encoded.length));
-    }
-  }
-  return "";
-}
-
-function setCookie(name, value, maxAgeSeconds = 86400) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure}`;
-}
-
-function deleteCookie(name) {
-  document.cookie = `${encodeURIComponent(name)}=; Path=/; Max-Age=0; SameSite=Lax`;
-}
-
-function readStoredToken() {
-  return getCookie(ADMIN_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY) || "";
-}
-
-function saveStoredToken(token) {
-  setCookie(ADMIN_TOKEN_KEY, token, 60 * 60 * 24 * 7);
-  localStorage.setItem(ADMIN_TOKEN_KEY, token);
-}
-
-function clearStoredToken() {
-  deleteCookie(ADMIN_TOKEN_KEY);
-  localStorage.removeItem(ADMIN_TOKEN_KEY);
-}
-
-let adminToken = readStoredToken();
-
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("api");
@@ -47,6 +8,7 @@ function resolveApiBase() {
 }
 
 const ADMIN_API_BASE = resolveApiBase();
+let currentAdmin = null;
 
 function apiUrl(path) {
   return ADMIN_API_BASE ? `${ADMIN_API_BASE}${path}` : path;
@@ -56,31 +18,43 @@ function setAdminStatus(text) {
   document.getElementById("adminStatus").textContent = text;
 }
 
-function authHeaders() {
-  return adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
+function parseIntOrNull(value) {
+  if (!value || value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isInteger(n) ? n : null;
 }
 
-async function registerAdmin() {
-  const username = document.getElementById("adminUser").value.trim();
-  const password = document.getElementById("adminPass").value.trim();
-  if (!username || !password) {
-    setAdminStatus("Введите логин и пароль");
-    return;
-  }
+function parseDateOrNull(value) {
+  const v = (value || "").trim();
+  return v ? v : null;
+}
 
-  const response = await fetch(apiUrl("/register"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password })
+async function apiFetch(path, options = {}) {
+  const response = await fetch(apiUrl(path), {
+    credentials: "include",
+    ...options
   });
+  return response;
+}
 
+async function checkSession() {
+  const response = await apiFetch("/me");
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    setAdminStatus(`Ошибка регистрации: ${payload.detail || response.status}`);
-    return;
+    currentAdmin = null;
+    setAdminStatus("Сессия не активна");
+    return null;
   }
 
-  setAdminStatus("Регистрация успешна. Войдите.");
+  const me = await response.json();
+  if (me.role !== "admin") {
+    currentAdmin = me;
+    setAdminStatus(`Вход как ${me.username}, но роль не admin`);
+    return me;
+  }
+
+  currentAdmin = me;
+  setAdminStatus(`Авторизован как admin: ${me.username}`);
+  return me;
 }
 
 async function loginAdmin() {
@@ -95,7 +69,7 @@ async function loginAdmin() {
   body.set("username", username);
   body.set("password", password);
 
-  const response = await fetch(apiUrl("/login"), {
+  const response = await apiFetch("/login", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString()
@@ -107,29 +81,22 @@ async function loginAdmin() {
     return;
   }
 
-  const payload = await response.json();
-  adminToken = payload.access_token || "";
-  saveStoredToken(adminToken);
-  setAdminStatus(`Вход выполнен: ${username}`);
+  await checkSession();
   await loadCards();
+  await loadSuggestions();
 }
 
-function logoutAdmin() {
-  adminToken = "";
-  clearStoredToken();
+async function logoutAdmin() {
+  await apiFetch("/logout", { method: "POST" });
+  currentAdmin = null;
   setAdminStatus("Вы вышли");
   document.getElementById("adminCardsList").innerHTML = "";
-}
-
-function parseIntOrNull(value) {
-  if (!value || value.trim() === "") return null;
-  const n = Number(value);
-  return Number.isInteger(n) ? n : null;
+  document.getElementById("adminSuggestionsList").innerHTML = "";
 }
 
 async function createCard() {
-  if (!adminToken) {
-    setAdminStatus("Сначала войдите");
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    setAdminStatus("Нужна авторизация администратора");
     return;
   }
 
@@ -142,19 +109,24 @@ async function createCard() {
   const payload = {
     name,
     region: document.getElementById("createRegion").value.trim() || undefined,
+    district: document.getElementById("createDistrict").value.trim() || undefined,
     birth_year: parseIntOrNull(document.getElementById("createBirthYear").value),
     death_year: parseIntOrNull(document.getElementById("createDeathYear").value),
+    nationality: document.getElementById("createNationality").value.trim() || undefined,
     category: document.getElementById("createOccupation").value.trim() || undefined,
     charge: document.getElementById("createCharge").value.trim() || undefined,
+    sentence: document.getElementById("createSentence").value.trim() || undefined,
+    arrest_date: parseDateOrNull(document.getElementById("createArrestDate").value),
+    sentence_date: parseDateOrNull(document.getElementById("createSentenceDate").value),
+    rehabilitation_date: parseDateOrNull(document.getElementById("createRehabilitationDate").value),
+    source: document.getElementById("createSource").value.trim() || undefined,
+    status: document.getElementById("createStatus").value.trim() || undefined,
     description: document.getElementById("createBiography").value.trim() || undefined
   };
 
-  const response = await fetch(apiUrl("/cards"), {
+  const response = await apiFetch("/cards", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders()
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 
@@ -168,10 +140,18 @@ async function createCard() {
   setAdminStatus(`Карточка создана: #${created.id}`);
   document.getElementById("createName").value = "";
   document.getElementById("createRegion").value = "";
+  document.getElementById("createDistrict").value = "";
   document.getElementById("createBirthYear").value = "";
   document.getElementById("createDeathYear").value = "";
+  document.getElementById("createNationality").value = "";
   document.getElementById("createOccupation").value = "";
   document.getElementById("createCharge").value = "";
+  document.getElementById("createSentence").value = "";
+  document.getElementById("createArrestDate").value = "";
+  document.getElementById("createSentenceDate").value = "";
+  document.getElementById("createRehabilitationDate").value = "";
+  document.getElementById("createSource").value = "";
+  document.getElementById("createStatus").value = "";
   document.getElementById("createBiography").value = "";
   await loadCards();
 }
@@ -183,21 +163,14 @@ async function importSeedFile() {
     setAdminStatus("Выберите JSON файл");
     return;
   }
-  if (!adminToken) {
-    setAdminStatus("Сначала войдите");
-    return;
-  }
 
   try {
     const text = await file.text();
     const payload = JSON.parse(text);
 
-    const response = await fetch(apiUrl("/cards/import/seed"), {
+    const response = await apiFetch("/cards/import/seed", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders()
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
 
@@ -215,14 +188,8 @@ async function importSeedFile() {
 }
 
 async function deleteCard(cardId) {
-  if (!adminToken) {
-    setAdminStatus("Сначала войдите");
-    return;
-  }
-
-  const response = await fetch(apiUrl(`/cards/${cardId}`), {
-    method: "DELETE",
-    headers: authHeaders()
+  const response = await apiFetch(`/cards/${cardId}`, {
+    method: "DELETE"
   });
 
   if (!response.ok) {
@@ -237,15 +204,13 @@ async function deleteCard(cardId) {
 
 async function loadCards() {
   const container = document.getElementById("adminCardsList");
-  if (!adminToken) {
-    container.innerHTML = "Войдите для просмотра карточек";
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    container.innerHTML = "Войдите как admin для просмотра карточек";
     return;
   }
 
   container.innerHTML = "Загрузка...";
-  const response = await fetch(apiUrl("/cards"), {
-    headers: authHeaders()
-  });
+  const response = await apiFetch("/cards");
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -275,14 +240,108 @@ async function loadCards() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("adminRegisterBtn").addEventListener("click", registerAdmin);
+async function moderationAction(id, action) {
+  const comment = window.prompt("Комментарий модератора (необязательно):", "") || "";
+  const response = await apiFetch(`/admin/suggestions/${id}/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ comment })
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка модерации: ${body.detail || response.status}`);
+    return;
+  }
+
+  const body = await response.json();
+  setAdminStatus(body.message || "Модерация выполнена");
+  await loadSuggestions();
+  await loadCards();
+}
+
+async function deleteSuggestion(id) {
+  const response = await apiFetch(`/admin/suggestions/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка удаления предложки: ${body.detail || response.status}`);
+    return;
+  }
+  setAdminStatus(`Предложение #${id} удалено`);
+  await loadSuggestions();
+}
+
+async function loadSuggestions() {
+  const container = document.getElementById("adminSuggestionsList");
+  const state = document.getElementById("suggestionsStateFilter").value;
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    container.innerHTML = "Войдите как admin для модерации";
+    return;
+  }
+
+  const query = state ? `?state=${encodeURIComponent(state)}` : "";
+  const response = await apiFetch(`/admin/suggestions${query}`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    container.innerHTML = `Ошибка: ${body.detail || response.status}`;
+    return;
+  }
+
+  const items = await response.json();
+  if (!items.length) {
+    container.innerHTML = "Предложений нет";
+    return;
+  }
+
+  container.innerHTML = "";
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "admin-card-row";
+
+    const info = document.createElement("div");
+    info.innerHTML = `<strong>${item.full_name}</strong> (${item.birth_year || "?"}) #${item.id}<br><small>state: ${item.state} | source: ${item.source || "-"}</small>`;
+    row.appendChild(info);
+
+    const actions = document.createElement("div");
+
+    if (item.state === "pending") {
+      const approveBtn = document.createElement("button");
+      approveBtn.type = "button";
+      approveBtn.textContent = "Одобрить";
+      approveBtn.addEventListener("click", () => moderationAction(item.id, "approve"));
+      actions.appendChild(approveBtn);
+
+      const rejectBtn = document.createElement("button");
+      rejectBtn.type = "button";
+      rejectBtn.textContent = "Отклонить";
+      rejectBtn.addEventListener("click", () => moderationAction(item.id, "reject"));
+      actions.appendChild(rejectBtn);
+    }
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "Удалить";
+    deleteBtn.addEventListener("click", () => deleteSuggestion(item.id));
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(actions);
+    container.appendChild(row);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("adminLoginBtn").addEventListener("click", loginAdmin);
   document.getElementById("adminLogoutBtn").addEventListener("click", logoutAdmin);
+  document.getElementById("adminWhoamiBtn").addEventListener("click", async () => {
+    await checkSession();
+  });
+
   document.getElementById("seedImportBtn").addEventListener("click", importSeedFile);
   document.getElementById("createCardBtn").addEventListener("click", createCard);
   document.getElementById("refreshCardsBtn").addEventListener("click", loadCards);
+  document.getElementById("loadSuggestionsBtn").addEventListener("click", loadSuggestions);
 
-  setAdminStatus(adminToken ? "Токен найден (cookie/localStorage)" : "Не авторизован");
-  loadCards();
+  await checkSession();
+  await loadCards();
+  await loadSuggestions();
 });

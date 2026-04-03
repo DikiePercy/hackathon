@@ -312,145 +312,6 @@ img {
   text-indent: 24px;
 }
 
-.admin-panel {
-  border: 1px solid #d5cdba;
-  border-radius: 6px;
-  background: #fff;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.admin-panel h3 {
-  margin-bottom: 10px;
-}
-
-.admin-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.admin-form-grid input,
-.admin-panel textarea,
-.admin-panel input[type="file"] {
-  width: 100%;
-  border: 1px solid #bcae94;
-  border-radius: 4px;
-  padding: 8px;
-  font-size: 14px;
-}
-
-.admin-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.admin-actions button,
-.admin-card-row button {
-  border: 1px solid #7a2020;
-  background: #7a2020;
-  color: #fff;
-  border-radius: 4px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.admin-cards-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.admin-card-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid #e4dccd;
-  border-radius: 4px;
-  padding: 8px;
-  background: #faf8f2;
-}
-
-.chat-box {
-  min-height: 180px;
-  max-height: 320px;
-  overflow: auto;
-  border: 1px solid #d5cdba;
-  border-radius: 4px;
-  padding: 8px;
-  margin-bottom: 10px;
-  background: #faf8f2;
-}
-
-.chat-line {
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 4px;
-}
-
-.chat-line.user {
-  background: #eee7d8;
-}
-
-.chat-line.assistant {
-  background: #e5efe4;
-}
-
-.chat-helper {
-  margin-bottom: 10px;
-  color: #555;
-}
-
-.chat-citations {
-  margin-top: 8px;
-  padding-left: 18px;
-}
-
-.chat-citations li {
-  margin-bottom: 8px;
-}
-
-.chat-history-box {
-  min-height: 120px;
-  max-height: 260px;
-  overflow: auto;
-  border: 1px solid #d5cdba;
-  border-radius: 4px;
-  padding: 8px;
-  margin-bottom: 10px;
-  background: #fdfbf6;
-}
-
-.chat-history-item {
-  border-bottom: 1px solid #ece6d8;
-  padding: 8px 0;
-  font-size: 14px;
-}
-
-.chat-history-item:last-child {
-  border-bottom: none;
-}
-
-.chat-history-time {
-  color: #666;
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.chat-history-sources {
-  color: #555;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.chat-limit-label {
-  align-self: center;
-}
-
 /* ===== SIDEBAR ===== */
 .sidebar {
   display: flex;
@@ -500,6 +361,130 @@ img {
   color: #d4c8a8;
 }
 
+/* ===== FORMS / PANELS ===== */
+.admin-panel {
+  background: #fff;
+  border: 1px solid #ddd5c5;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-panel h3 {
+  margin-bottom: 10px;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.admin-form-grid input,
+.admin-form-grid select,
+.admin-panel textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #c8b99a;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.admin-actions button,
+.admin-actions select {
+  padding: 8px 10px;
+  border: 1px solid #5a1a1a;
+  background: #7a2020;
+  color: #f4f1ea;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-actions select {
+  background: #fff;
+  color: #333;
+  border-color: #c8b99a;
+}
+
+.admin-cards-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.admin-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #ddd5c5;
+  border-radius: 4px;
+  padding: 8px;
+  background: #fdfbf7;
+}
+
+.admin-card-row button {
+  padding: 6px 8px;
+  border: 1px solid #5a1a1a;
+  border-radius: 4px;
+  background: #7a2020;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-helper {
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.chat-box,
+.chat-history-box {
+  border: 1px solid #ddd5c5;
+  border-radius: 4px;
+  background: #fff;
+  min-height: 110px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  margin: 8px 0;
+}
+
+.chat-line {
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.chat-line.user {
+  color: #5a1a1a;
+}
+
+.chat-line.assistant {
+  color: #1f2a3a;
+}
+
+.chat-citations {
+  margin: 8px 0 0 18px;
+}
+
+.chat-history-item {
+  border-bottom: 1px solid #efe8da;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.chat-history-time,
+.chat-history-sources {
+  color: #777;
+  font-size: 12px;
+}
+
 /* ===== FOOTER ===== */
 .site-footer {
   background: #2b2b2b;
@@ -526,9 +511,6 @@ img {
   }
   .header-inner {
     flex-wrap: wrap;
-  }
-  .admin-form-grid {
-    grid-template-columns: 1fr;
   }
   .search-bar {
     order: 3;

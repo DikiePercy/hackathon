@@ -7,8 +7,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 import httpx
 
-from database import init_db, SessionLocal, PersonCard, Document, DocumentChunk, get_db
-from routers import auth_router, cards, rag
+from database import init_db, SessionLocal, PersonCard, Document, DocumentChunk, get_db, User
+from auth import require_admin
+from routers import auth_router, cards, rag, suggestions
 from rag_engine import add_documents_to_vector_db
 
 
@@ -35,11 +36,17 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(cards.router)
 app.include_router(rag.router)
+app.include_router(suggestions.router)
 
 
 @app.on_event("startup")
 def startup_event() -> None:
     init_db()
+    db = SessionLocal()
+    try:
+        auth_router.ensure_admin_user(db)
+    finally:
+        db.close()
 
 
 @app.get("/")
@@ -111,6 +118,7 @@ async def upload_card_with_document(
     lat: float | None = Form(None),
     lon: float | None = Form(None),
     file: UploadFile = File(...),
+    current_user: User = Depends(require_admin),
 ) -> dict:
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")

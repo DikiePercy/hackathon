@@ -1,42 +1,5 @@
-const CHAT_TOKEN_KEY = "archive_chat_token";
-
-function getCookie(name) {
-  const encoded = encodeURIComponent(name) + "=";
-  const parts = document.cookie.split(";");
-  for (const part of parts) {
-    const item = part.trim();
-    if (item.startsWith(encoded)) {
-      return decodeURIComponent(item.slice(encoded.length));
-    }
-  }
-  return "";
-}
-
-function setCookie(name, value, maxAgeSeconds = 86400) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure}`;
-}
-
-function deleteCookie(name) {
-  document.cookie = `${encodeURIComponent(name)}=; Path=/; Max-Age=0; SameSite=Lax`;
-}
-
-function readStoredToken() {
-  return getCookie(CHAT_TOKEN_KEY) || localStorage.getItem(CHAT_TOKEN_KEY) || "";
-}
-
-function saveStoredToken(token) {
-  setCookie(CHAT_TOKEN_KEY, token, 60 * 60 * 24 * 7);
-  localStorage.setItem(CHAT_TOKEN_KEY, token);
-}
-
-function clearStoredToken() {
-  deleteCookie(CHAT_TOKEN_KEY);
-  localStorage.removeItem(CHAT_TOKEN_KEY);
-}
-
-let chatToken = readStoredToken();
 let historyOffset = 0;
+let currentUser = null;
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -51,6 +14,13 @@ const CHAT_API_BASE = resolveApiBase();
 
 function apiUrl(path) {
   return CHAT_API_BASE ? `${CHAT_API_BASE}${path}` : path;
+}
+
+async function apiFetch(path, options = {}) {
+  return fetch(apiUrl(path), {
+    credentials: "include",
+    ...options
+  });
 }
 
 function setStatus(text) {
@@ -130,8 +100,21 @@ function getHistoryLimit() {
   return Math.min(v, 100);
 }
 
+async function checkSession() {
+  const response = await apiFetch("/me");
+  if (!response.ok) {
+    currentUser = null;
+    setStatus("Не авторизован");
+    return null;
+  }
+
+  currentUser = await response.json();
+  setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
+  return currentUser;
+}
+
 async function loadHistory(reset = true) {
-  if (!chatToken) {
+  if (!currentUser) {
     document.getElementById("chatHistory").innerHTML = "Войдите, чтобы увидеть историю";
     document.getElementById("chatHistoryMeta").textContent = "";
     return;
@@ -142,10 +125,8 @@ async function loadHistory(reset = true) {
     historyOffset = 0;
   }
 
-  const url = apiUrl(`/chat/history?limit=${limit}&offset=${historyOffset}`);
-  const response = await fetch(url, {
-    headers: { "Authorization": `Bearer ${chatToken}` }
-  });
+  const url = `/chat/history?limit=${limit}&offset=${historyOffset}`;
+  const response = await apiFetch(url);
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
@@ -175,7 +156,7 @@ async function registerUser() {
     return;
   }
 
-  const response = await fetch(apiUrl("/register"), {
+  const response = await apiFetch("/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password })
@@ -202,7 +183,7 @@ async function loginUser() {
   body.set("username", username);
   body.set("password", password);
 
-  const response = await fetch(apiUrl("/login"), {
+  const response = await apiFetch("/login", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString()
@@ -214,16 +195,13 @@ async function loginUser() {
     return;
   }
 
-  const payload = await response.json();
-  chatToken = payload.access_token || "";
-  saveStoredToken(chatToken);
-  setStatus(`Вход выполнен: ${username}`);
+  await checkSession();
   await loadHistory(true);
 }
 
-function logoutUser() {
-  chatToken = "";
-  clearStoredToken();
+async function logoutUser() {
+  await apiFetch("/logout", { method: "POST" });
+  currentUser = null;
   historyOffset = 0;
   document.getElementById("chatHistory").innerHTML = "";
   document.getElementById("chatHistoryMeta").textContent = "";
@@ -235,7 +213,7 @@ async function sendMessage() {
   const query = input.value.trim();
   if (!query) return;
 
-  if (!chatToken) {
+  if (!currentUser) {
     setStatus("Сначала войдите в аккаунт");
     return;
   }
@@ -243,12 +221,9 @@ async function sendMessage() {
   addMessage("user", `Вы: ${query}`);
   input.value = "";
 
-  const response = await fetch(apiUrl("/chat"), {
+  const response = await apiFetch("/chat", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${chatToken}`
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query })
   });
 
@@ -264,7 +239,7 @@ async function sendMessage() {
   await loadHistory(true);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("registerBtn").addEventListener("click", registerUser);
   document.getElementById("loginBtn").addEventListener("click", loginUser);
   document.getElementById("logoutBtn").addEventListener("click", logoutUser);
@@ -279,8 +254,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  setStatus(chatToken ? "Токен найден (cookie/localStorage), можно писать в чат" : "Не авторизован");
-  if (chatToken) {
-    loadHistory(true);
+  await checkSession();
+  if (currentUser) {
+    await loadHistory(true);
   }
 });

@@ -1,4 +1,5 @@
 const CYRILLIC = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ".split("");
+let allPeople = [];
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -6,85 +7,27 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "";
+  return "http://localhost:8000";
 }
 
 const API_BASE = resolveApiBase();
 
-function apiUrl(path) {
-  return API_BASE ? `${API_BASE}${path}` : path;
-}
-
-function normalizePeople(rows) {
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.full_name,
-    birth_year: row.birth_year,
-    death_year: row.death_year,
-    occupation: row.occupation,
-    region: row.region
-  }));
-}
-
-let allPeople = [];
-
-function getFilterValues() {
-  const region = document.getElementById("filterRegion")?.value || "";
-  const year = document.getElementById("filterYear")?.value || "";
-  return { region, year };
-}
-
-function applyFilters(people) {
-  const { region, year } = getFilterValues();
-  return people.filter((p) => {
-    const byRegion = !region || (p.region || "") === region;
-    const byYear = !year || String(p.birth_year || "") === year;
-    return byRegion && byYear;
-  });
-}
-
-function fillFilterOptions(people) {
-  const regionSelect = document.getElementById("filterRegion");
-  const yearSelect = document.getElementById("filterYear");
-  if (!regionSelect || !yearSelect) return;
-
-  const regionOptions = Array.from(
-    new Set(people.map((p) => (p.region || "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, "ru"));
-
-  const yearOptions = Array.from(
-    new Set(people.map((p) => p.birth_year).filter((v) => Number.isInteger(v)))
-  ).sort((a, b) => a - b);
-
-  const currentRegion = regionSelect.value;
-  const currentYear = yearSelect.value;
-
-  regionSelect.innerHTML = '<option value="">Все регионы</option>';
-  yearSelect.innerHTML = '<option value="">Все годы</option>';
-
-  regionOptions.forEach((region) => {
-    const option = document.createElement("option");
-    option.value = region;
-    option.textContent = region;
-    regionSelect.appendChild(option);
-  });
-
-  yearOptions.forEach((year) => {
-    const option = document.createElement("option");
-    option.value = String(year);
-    option.textContent = String(year);
-    yearSelect.appendChild(option);
-  });
-
-  if (currentRegion) regionSelect.value = currentRegion;
-  if (currentYear) yearSelect.value = currentYear;
+function mapPerson(person) {
+  return {
+    id: person.id,
+    name: person.full_name,
+    birth_year: person.birth_year,
+    death_year: person.death_year,
+    region: person.region || "",
+    district: person.district || "",
+    occupation: person.occupation || "",
+    charge: person.charge || ""
+  };
 }
 
 function groupByLetter(people) {
   const groups = {};
-  CYRILLIC.forEach((l) => {
-    groups[l] = [];
-  });
+  CYRILLIC.forEach((l) => { groups[l] = []; });
 
   people.forEach((p) => {
     const first = (p.name || "").charAt(0).toUpperCase();
@@ -93,20 +36,18 @@ function groupByLetter(people) {
     }
   });
 
-  CYRILLIC.forEach((l) => {
-    groups[l].sort((a, b) => (a.name || "").localeCompare(b.name || "", "ru"));
-  });
-
+  for (const l of CYRILLIC) {
+    groups[l].sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  }
   return groups;
 }
 
 function renderAlphabetBar(groups) {
   const bar = document.getElementById("alphabetBar");
   bar.innerHTML = "";
-
   CYRILLIC.forEach((letter) => {
     const a = document.createElement("a");
-    a.href = `#letter-${letter}`;
+    a.href = "#letter-" + letter;
     a.textContent = letter;
     if (!groups[letter] || groups[letter].length === 0) {
       a.classList.add("disabled");
@@ -129,7 +70,7 @@ function renderRegistry(groups) {
 
     const heading = document.createElement("h2");
     heading.className = "letter-heading";
-    heading.id = `letter-${letter}`;
+    heading.id = "letter-" + letter;
     heading.textContent = letter;
     section.appendChild(heading);
 
@@ -139,13 +80,11 @@ function renderRegistry(groups) {
     people.forEach((p) => {
       const li = document.createElement("li");
       const a = document.createElement("a");
-      a.href = `index.html?id=${p.id}`;
-      a.textContent = p.name;
+      a.href = "index.html?id=" + p.id;
 
-      const span = document.createElement("span");
-      span.className = "name-id";
-      span.textContent = ` #${p.id}`;
-      a.appendChild(span);
+      const years = [p.birth_year, p.death_year].filter(Boolean).join("-");
+      const details = [p.region, p.occupation, years].filter(Boolean).join(" | ");
+      a.innerHTML = `${p.name}<span class="name-id">#${p.id}${details ? " | " + details : ""}</span>`;
 
       li.appendChild(a);
       ul.appendChild(li);
@@ -156,80 +95,107 @@ function renderRegistry(groups) {
   });
 }
 
-async function fetchPeople(query = "") {
-  const url = query
-    ? apiUrl(`/api/persons?q=${encodeURIComponent(query)}&limit=1000`)
-    : apiUrl("/api/persons?limit=1000");
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return normalizePeople(await response.json());
+function getFilterValues() {
+  return {
+    query: (document.getElementById("searchInput").value || "").trim().toLowerCase(),
+    region: (document.getElementById("filterRegion").value || "").trim().toLowerCase(),
+    year: (document.getElementById("filterYear").value || "").trim()
+  };
 }
 
-async function loadAndRender(query = "") {
-  const registry = document.getElementById("registryList");
-  registry.innerHTML = "Загрузка...";
+function applyFilters() {
+  const { query, region, year } = getFilterValues();
 
-  try {
-    allPeople = await fetchPeople(query);
-    fillFilterOptions(allPeople);
+  const filtered = allPeople.filter((p) => {
+    const text = `${p.name} ${p.region} ${p.district} ${p.occupation} ${p.charge}`.toLowerCase();
+    const byQuery = !query || text.includes(query);
+    const byRegion = !region || (p.region || "").toLowerCase().includes(region);
+    const byYear = !year || String(p.birth_year || "") === year || String(p.death_year || "") === year;
+    return byQuery && byRegion && byYear;
+  });
 
-    const people = applyFilters(allPeople);
-    const groups = groupByLetter(people);
-    renderAlphabetBar(groups);
-    renderRegistry(groups);
-
-    if (!people.length) {
-      registry.innerHTML = "Данные не найдены";
-    }
-  } catch (err) {
-    registry.innerHTML = `Ошибка загрузки: ${err.message}`;
-  }
-}
-
-function renderWithCurrentFilters() {
-  const registry = document.getElementById("registryList");
-  const people = applyFilters(allPeople);
-  const groups = groupByLetter(people);
+  const groups = groupByLetter(filtered);
   renderAlphabetBar(groups);
   renderRegistry(groups);
+}
 
-  if (!people.length) {
-    registry.innerHTML = "Данные не найдены";
-  }
+function fillRegionFilter() {
+  const select = document.getElementById("filterRegion");
+  const existing = new Set();
+
+  allPeople.forEach((p) => {
+    if (p.region) {
+      existing.add(p.region);
+    }
+  });
+
+  const values = Array.from(existing).sort((a, b) => a.localeCompare(b, "ru"));
+  select.innerHTML = "<option value=''>Все регионы</option>";
+  values.forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region;
+    option.textContent = region;
+    select.appendChild(option);
+  });
+}
+
+function fillYearFilter() {
+  const select = document.getElementById("filterYear");
+  const existing = new Set();
+
+  allPeople.forEach((p) => {
+    if (p.birth_year) existing.add(String(p.birth_year));
+    if (p.death_year) existing.add(String(p.death_year));
+  });
+
+  const values = Array.from(existing).sort();
+  select.innerHTML = "<option value=''>Все годы</option>";
+  values.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
+  });
 }
 
 function setupSearch() {
   const input = document.getElementById("searchInput");
   const btn = document.getElementById("searchBtn");
+  const applyBtn = document.querySelector(".filter-apply-btn");
 
-  const doSearch = () => {
-    const query = input.value.trim();
-    loadAndRender(query);
-  };
+  btn.addEventListener("click", applyFilters);
+  applyBtn.addEventListener("click", applyFilters);
 
-  btn.addEventListener("click", doSearch);
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doSearch();
+    if (e.key === "Enter") {
+      applyFilters();
+    }
   });
 }
 
-function setupFilters() {
-  const applyBtn = document.querySelector(".filter-apply-btn");
-  const regionSelect = document.getElementById("filterRegion");
-  const yearSelect = document.getElementById("filterYear");
+async function loadPeople() {
+  const response = await fetch(`${API_BASE}/api/persons?limit=1000&offset=0`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
 
-  if (!applyBtn || !regionSelect || !yearSelect) return;
-
-  applyBtn.addEventListener("click", renderWithCurrentFilters);
-  regionSelect.addEventListener("change", renderWithCurrentFilters);
-  yearSelect.addEventListener("change", renderWithCurrentFilters);
+  const data = await response.json();
+  allPeople = Array.isArray(data) ? data.map(mapPerson) : [];
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function showError(message) {
+  const container = document.getElementById("registryList");
+  container.innerHTML = `<div class='letter-empty'>Ошибка загрузки списка: ${message}</div>`;
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
   setupSearch();
-  setupFilters();
-  loadAndRender();
+  try {
+    await loadPeople();
+    fillRegionFilter();
+    fillYearFilter();
+    applyFilters();
+  } catch (err) {
+    showError(err.message);
+  }
 });

@@ -26,10 +26,12 @@
         <a href="index.html">Главная</a>
         <a href="list.html" class="nav-active">База данных</a>
         <a href="chat.html">Чат AI</a>
+        <a href="suggestions.html">Предложить запись</a>
         <a href="admin.html">Админ</a>
         <a href="about.html">О проекте</a>
         <a href="contacts.html">Контакты</a>
       </nav>
+      <div id="authContainer"></div>
     </div>
   </header>
 
@@ -60,10 +62,20 @@
         <label class="filter-label" for="filterRegion">Регион</label>
         <select id="filterRegion" class="filter-select">
           <option value="">Все регионы</option>
+          <option value="altai">Алтайский край</option>
+          <option value="moscow">Москва</option>
+          <option value="leningrad">Ленинград</option>
+          <option value="novosibirsk">Новосибирская обл.</option>
+          <option value="omsk">Омская обл.</option>
         </select>
-        <label class="filter-label" for="filterYear">Год рождения</label>
+        <label class="filter-label" for="filterYear">Год репрессии</label>
         <select id="filterYear" class="filter-select">
           <option value="">Все годы</option>
+          <option value="1930">1930</option>
+          <option value="1934">1934</option>
+          <option value="1937">1937</option>
+          <option value="1938">1938</option>
+          <option value="1941">1941</option>
         </select>
         <button class="filter-apply-btn" type="button">Применить</button>
       </div>

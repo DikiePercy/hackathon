@@ -18,6 +18,7 @@
         <a href="index.html">Главная</a>
         <a href="list.html">База данных</a>
         <a href="chat.html">Чат AI</a>
+        <a href="suggestions.html">Предложить запись</a>
         <a href="admin.html" class="nav-active">Админ</a>
         <a href="about.html">О проекте</a>
         <a href="contacts.html">Контакты</a>
@@ -37,9 +38,9 @@
             <input id="adminPass" type="password" placeholder="Пароль">
           </div>
           <div class="admin-actions">
-            <button id="adminRegisterBtn" type="button">Регистрация</button>
             <button id="adminLoginBtn" type="button">Войти</button>
             <button id="adminLogoutBtn" type="button">Выйти</button>
+            <button id="adminWhoamiBtn" type="button">Проверить сессию</button>
           </div>
           <p id="adminStatus">Не авторизован</p>
         </div>
@@ -57,10 +58,18 @@
           <div class="admin-form-grid">
             <input id="createName" type="text" placeholder="ФИО *">
             <input id="createRegion" type="text" placeholder="Регион">
+            <input id="createDistrict" type="text" placeholder="Район">
             <input id="createBirthYear" type="number" placeholder="Год рождения">
             <input id="createDeathYear" type="number" placeholder="Год смерти">
+            <input id="createNationality" type="text" placeholder="Национальность">
             <input id="createOccupation" type="text" placeholder="Профессия / категория">
             <input id="createCharge" type="text" placeholder="Обвинение">
+            <input id="createSentence" type="text" placeholder="Приговор">
+            <input id="createArrestDate" type="date" placeholder="Дата ареста">
+            <input id="createSentenceDate" type="date" placeholder="Дата приговора">
+            <input id="createRehabilitationDate" type="date" placeholder="Дата реабилитации">
+            <input id="createSource" type="text" placeholder="Источник">
+            <input id="createStatus" type="text" placeholder="Статус (verified)">
           </div>
           <textarea id="createBiography" rows="5" placeholder="Биография"></textarea>
           <div class="admin-actions">
@@ -74,6 +83,20 @@
             <button id="refreshCardsBtn" type="button">Обновить список</button>
           </div>
           <div id="adminCardsList" class="admin-cards-list"></div>
+        </div>
+
+        <div class="admin-panel">
+          <h3>Модерация предложений</h3>
+          <div class="admin-actions">
+            <select id="suggestionsStateFilter">
+              <option value="pending" selected>Только pending</option>
+              <option value="approved">Только approved</option>
+              <option value="rejected">Только rejected</option>
+              <option value="">Все</option>
+            </select>
+            <button id="loadSuggestionsBtn" type="button">Загрузить предложения</button>
+          </div>
+          <div id="adminSuggestionsList" class="admin-cards-list"></div>
         </div>
       </section>
     </main>

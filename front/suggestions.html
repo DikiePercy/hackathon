@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Предложить запись — Архив Памяти</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="images/iconic_biber.png">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9881;</span>
+        <a href="index.html" class="logo-text">АРХИВ ПАМЯТИ</a>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Главная</a>
+        <a href="list.html">База данных</a>
+        <a href="chat.html">Чат AI</a>
+        <a href="suggestions.html" class="nav-active">Предложить запись</a>
+        <a href="admin.html">Админ</a>
+        <a href="about.html">О проекте</a>
+        <a href="contacts.html">Контакты</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="main-wrapper">
+    <main class="content">
+      <section class="biography-section">
+        <h2>Экран предложений</h2>
+        <p>Обычный пользователь может отправить предложение. После модерации администратором запись появится в базе.</p>
+
+        <div class="admin-panel">
+          <h3>Авторизация</h3>
+          <div class="admin-form-grid">
+            <input id="userLogin" type="text" placeholder="Логин">
+            <input id="userPassword" type="password" placeholder="Пароль">
+          </div>
+          <div class="admin-actions">
+            <button id="registerBtn" type="button">Регистрация</button>
+            <button id="loginBtn" type="button">Войти</button>
+            <button id="logoutBtn" type="button">Выйти</button>
+          </div>
+          <p id="suggestAuthStatus">Не авторизован</p>
+        </div>
+
+        <div class="admin-panel">
+          <h3>Новая предложка</h3>
+          <div class="admin-form-grid">
+            <input id="fullName" type="text" placeholder="ФИО *">
+            <input id="birthYear" type="number" placeholder="Год рождения *">
+            <input id="deathYear" type="number" placeholder="Год смерти">
+            <input id="nationality" type="text" placeholder="Национальность">
+            <input id="region" type="text" placeholder="Регион">
+            <input id="district" type="text" placeholder="Район">
+            <input id="occupation" type="text" placeholder="Профессия / должность">
+            <input id="charge" type="text" placeholder="Обвинение">
+            <input id="sentence" type="text" placeholder="Приговор">
+            <input id="arrestDate" type="date" placeholder="Дата ареста">
+            <input id="sentenceDate" type="date" placeholder="Дата приговора">
+            <input id="rehabilitationDate" type="date" placeholder="Дата реабилитации">
+            <input id="source" type="text" placeholder="Источник">
+            <input id="status" type="text" placeholder="Статус (например, verified)">
+          </div>
+          <textarea id="biography" rows="7" placeholder="Биография"></textarea>
+          <div class="admin-actions">
+            <button id="sendSuggestionBtn" type="button">Отправить предложение</button>
+          </div>
+        </div>
+
+        <div class="admin-panel">
+          <h3>Мои предложения</h3>
+          <div class="admin-actions">
+            <button id="loadMySuggestionsBtn" type="button">Обновить</button>
+          </div>
+          <div id="mySuggestionsList" class="admin-cards-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <p>&copy; 2024 Архив Памяти</p>
+  </footer>
+
+  <script src="suggestions-script.js"></script>
+</body>
+</html>
