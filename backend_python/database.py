@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from datetime import datetime
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://archive:archive@db:5432/archive")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://hackathon:hackathon@db:5432/hackathon")
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
