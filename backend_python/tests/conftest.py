@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("OPENAI_API_KEY", "")
+os.environ.setdefault("CHROMA_PATH", str(Path(__file__).resolve().parents[1] / ".chroma_test"))
 
 BACKEND_PYTHON_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_PYTHON_DIR) not in sys.path:
