@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import httpx
 import os
 from database import get_db, User, ChatHistory, PersonCard, Document, DocumentChunk
@@ -12,15 +13,46 @@ import json
 router = APIRouter()
 
 CPP_BACKEND_URL = os.getenv("CPP_BACKEND_URL", "http://cpp_backend:8080")
+CHAT_HISTORY_BACKEND = os.getenv("CHAT_HISTORY_BACKEND", "sql").strip().lower() or "sql"
 
 
 class ChatRequest(BaseModel):
     query: str
+    person_id: Optional[int] = None
+    top_k: Optional[int] = 4
+
+
+class ChatCitation(BaseModel):
+    person_id: Optional[int] = None
+    document_name: str
+    chunk_index: Optional[int] = None
+    score: Optional[float] = None
+    quote: str
 
 
 class ChatResponse(BaseModel):
     answer: str
     sources: List[int]
+    citations: List[ChatCitation]
+
+
+def _save_chat_history_sql(db: Session, user_id: int, query: str, answer: str, person_ids: List[int]) -> None:
+    chat_entry = ChatHistory(
+        user_id=user_id,
+        user_message=query,
+        bot_response=answer,
+        sources=json.dumps(person_ids),
+    )
+    db.add(chat_entry)
+    db.commit()
+
+
+def _save_chat_history(db: Session, user_id: int, query: str, answer: str, person_ids: List[int]) -> None:
+    # Extension point: later add cloud history provider with same contract.
+    if CHAT_HISTORY_BACKEND == "sql":
+        _save_chat_history_sql(db, user_id, query, answer, person_ids)
+        return
+    raise RuntimeError(f"Unsupported CHAT_HISTORY_BACKEND: {CHAT_HISTORY_BACKEND}")
 
 
 @router.post("/upload_document")
@@ -135,9 +167,16 @@ def chat(
     current_user: User = Depends(get_current_user)
 ):
     query = chat_request.query
+    top_k = max(1, min(int(chat_request.top_k or 4), 8))
 
     try:
-        rag_result = answer_with_rag(query, top_k=3)
+        rag_result = answer_with_rag(
+            query=query,
+            top_k=top_k,
+            candidate_k=max(10, top_k * 4),
+            min_score=0.2,
+            person_id=chat_request.person_id,
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -151,33 +190,48 @@ def chat(
 
     answer = rag_result["answer"]
     person_ids = rag_result["sources"]
+    citations = rag_result.get("citations", [])
     
-    # Save to chat history
-    chat_entry = ChatHistory(
-        user_id=current_user.id,
-        user_message=query,
-        bot_response=answer,
-        sources=json.dumps(person_ids)
-    )
-    db.add(chat_entry)
-    db.commit()
+    # Save to history via backend abstraction (sql now, cloud later).
+    try:
+        _save_chat_history(db, current_user.id, query, answer, person_ids)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
     
-    return ChatResponse(answer=answer, sources=person_ids)
+    return ChatResponse(answer=answer, sources=person_ids, citations=citations)
 
 
 @router.get("/chat/history")
 def get_chat_history(
     limit: int = 10,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
+    if CHAT_HISTORY_BACKEND != "sql":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Unsupported CHAT_HISTORY_BACKEND: {CHAT_HISTORY_BACKEND}"
+        )
+
+    total = db.query(func.count(ChatHistory.id))\
+        .filter(ChatHistory.user_id == current_user.id)\
+        .scalar() or 0
+
     history = db.query(ChatHistory)\
         .filter(ChatHistory.user_id == current_user.id)\
         .order_by(ChatHistory.timestamp.desc())\
+        .offset(offset)\
         .limit(limit)\
         .all()
-    
-    return [
+
+    items = [
         {
             "id": entry.id,
             "user_message": entry.user_message,
@@ -187,3 +241,12 @@ def get_chat_history(
         }
         for entry in history
     ]
+
+    return {
+        "items": items,
+        "limit": limit,
+        "offset": offset,
+        "total": int(total),
+        "has_more": (offset + len(items)) < int(total),
+        "storage_backend": CHAT_HISTORY_BACKEND,
+    }

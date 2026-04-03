@@ -405,6 +405,52 @@ img {
   color: #555;
 }
 
+.chat-citations {
+  margin-top: 8px;
+  padding-left: 18px;
+}
+
+.chat-citations li {
+  margin-bottom: 8px;
+}
+
+.chat-history-box {
+  min-height: 120px;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #d5cdba;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: #fdfbf6;
+}
+
+.chat-history-item {
+  border-bottom: 1px solid #ece6d8;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.chat-history-item:last-child {
+  border-bottom: none;
+}
+
+.chat-history-time {
+  color: #666;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.chat-history-sources {
+  color: #555;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.chat-limit-label {
+  align-self: center;
+}
+
 /* ===== SIDEBAR ===== */
 .sidebar {
   display: flex;

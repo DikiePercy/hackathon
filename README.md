@@ -21,3 +21,31 @@ chmod +x scripts/*.sh
 ## Важно
 
 - Не используй `docker compose down -v` в проде, если нужно сохранить БД.
+
+## RAG: Gemini или Claude
+
+В `.env` можно выбрать провайдер генерации для RAG:
+
+- `RAG_LLM_PROVIDER=gemini` (по умолчанию)
+- `RAG_LLM_PROVIDER=claude`
+
+Для Claude укажи:
+
+- `ANTHROPIC_API_KEY=...`
+- `RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620`
+
+Для эмбеддингов (поиск по векторной базе) можно выбрать провайдер отдельно:
+
+- `RAG_EMBEDDING_PROVIDER=gemini`
+- `RAG_EMBEDDING_PROVIDER=openai`
+
+Пример режима Claude + OpenAI embeddings (без Gemini):
+
+- `RAG_LLM_PROVIDER=claude`
+- `ANTHROPIC_API_KEY=...`
+- `RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620`
+- `RAG_EMBEDDING_PROVIDER=openai`
+- `OPENAI_API_KEY=...`
+- `RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large`
+
+Да, названия моделей ты задаешь сам в `.env` (например `RAG_CLAUDE_MODEL`).

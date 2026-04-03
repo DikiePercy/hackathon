@@ -36,6 +36,7 @@ function clearStoredToken() {
 }
 
 let chatToken = readStoredToken();
+let historyOffset = 0;
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -63,6 +64,107 @@ function addMessage(role, text) {
   div.textContent = text;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
+}
+
+function addSources(citations, sourceIds) {
+  const box = document.getElementById("chatMessages");
+  const wrap = document.createElement("div");
+  wrap.className = "chat-line assistant";
+
+  const idsText = Array.isArray(sourceIds) && sourceIds.length
+    ? `Источники person_id: ${sourceIds.join(", ")}`
+    : "Источники не найдены";
+
+  let html = `<div><strong>${idsText}</strong></div>`;
+  if (Array.isArray(citations) && citations.length) {
+    html += "<ul class=\"chat-citations\">";
+    citations.slice(0, 3).forEach((c) => {
+      const docName = c.document_name || "unknown";
+      const chunkIdx = c.chunk_index ?? "?";
+      const score = typeof c.score === "number" ? c.score.toFixed(3) : "n/a";
+      const quote = (c.quote || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      html += `<li><div><strong>${docName}</strong> (chunk ${chunkIdx}, score ${score})</div><div>${quote}</div></li>`;
+    });
+    html += "</ul>";
+  }
+
+  wrap.innerHTML = html;
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderHistoryItems(items, append = false) {
+  const box = document.getElementById("chatHistory");
+  if (!append) {
+    box.innerHTML = "";
+  }
+
+  if (!Array.isArray(items) || !items.length) {
+    if (!append) {
+      box.innerHTML = "История пуста";
+    }
+    return;
+  }
+
+  items.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "chat-history-item";
+    const ts = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "";
+    const src = Array.isArray(entry.sources) && entry.sources.length
+      ? entry.sources.join(", ")
+      : "-";
+    item.innerHTML = `
+      <div class="chat-history-time">${ts}</div>
+      <div><strong>Вы:</strong> ${entry.user_message || ""}</div>
+      <div><strong>AI:</strong> ${entry.bot_response || ""}</div>
+      <div class="chat-history-sources">sources: ${src}</div>
+    `;
+    box.appendChild(item);
+  });
+}
+
+function getHistoryLimit() {
+  const select = document.getElementById("historyLimit");
+  const v = Number(select?.value || 20);
+  if (!Number.isInteger(v) || v < 1) return 20;
+  return Math.min(v, 100);
+}
+
+async function loadHistory(reset = true) {
+  if (!chatToken) {
+    document.getElementById("chatHistory").innerHTML = "Войдите, чтобы увидеть историю";
+    document.getElementById("chatHistoryMeta").textContent = "";
+    return;
+  }
+
+  const limit = getHistoryLimit();
+  if (reset) {
+    historyOffset = 0;
+  }
+
+  const url = apiUrl(`/chat/history?limit=${limit}&offset=${historyOffset}`);
+  const response = await fetch(url, {
+    headers: { "Authorization": `Bearer ${chatToken}` }
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    document.getElementById("chatHistory").innerHTML = `Ошибка истории: ${payload.detail || response.status}`;
+    return;
+  }
+
+  const payload = await response.json();
+  const items = payload.items || [];
+  renderHistoryItems(items, !reset);
+
+  historyOffset += items.length;
+  const backend = payload.storage_backend || "unknown";
+  const hasMore = Boolean(payload.has_more);
+  document.getElementById("chatHistoryMeta").textContent =
+    `history: ${historyOffset}/${payload.total || 0}, backend: ${backend}`;
+
+  const loadMoreBtn = document.getElementById("loadMoreHistoryBtn");
+  loadMoreBtn.disabled = !hasMore;
 }
 
 async function registerUser() {
@@ -116,11 +218,15 @@ async function loginUser() {
   chatToken = payload.access_token || "";
   saveStoredToken(chatToken);
   setStatus(`Вход выполнен: ${username}`);
+  await loadHistory(true);
 }
 
 function logoutUser() {
   chatToken = "";
   clearStoredToken();
+  historyOffset = 0;
+  document.getElementById("chatHistory").innerHTML = "";
+  document.getElementById("chatHistoryMeta").textContent = "";
   setStatus("Вы вышли");
 }
 
@@ -154,6 +260,8 @@ async function sendMessage() {
 
   const payload = await response.json();
   addMessage("assistant", payload.answer || "Пустой ответ");
+  addSources(payload.citations || [], payload.sources || []);
+  await loadHistory(true);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -161,6 +269,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("loginBtn").addEventListener("click", loginUser);
   document.getElementById("logoutBtn").addEventListener("click", logoutUser);
   document.getElementById("sendChatBtn").addEventListener("click", sendMessage);
+  document.getElementById("loadHistoryBtn").addEventListener("click", () => loadHistory(true));
+  document.getElementById("loadMoreHistoryBtn").addEventListener("click", () => loadHistory(false));
+  document.getElementById("historyLimit").addEventListener("change", () => loadHistory(true));
   document.getElementById("chatInput").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -169,4 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   setStatus(chatToken ? "Токен найден (cookie/localStorage), можно писать в чат" : "Не авторизован");
+  if (chatToken) {
+    loadHistory(true);
+  }
 });

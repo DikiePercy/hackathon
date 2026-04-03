@@ -47,6 +47,18 @@
 
         <div class="admin-panel">
           <h3>Диалог</h3>
+          <div class="admin-actions">
+            <label for="historyLimit" class="chat-limit-label">Лимит истории:</label>
+            <select id="historyLimit">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+            </select>
+            <button id="loadHistoryBtn" type="button">Загрузить историю</button>
+            <button id="loadMoreHistoryBtn" type="button">Еще</button>
+          </div>
+          <div id="chatHistoryMeta" class="chat-helper"></div>
+          <div id="chatHistory" class="chat-history-box"></div>
           <div id="chatMessages" class="chat-box"></div>
           <textarea id="chatInput" rows="4" placeholder="Введите вопрос..."></textarea>
           <div class="admin-actions">

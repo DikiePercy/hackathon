@@ -112,6 +112,14 @@ ensure_env_file() {
   cat > "$REPO_ROOT/.env" <<EOF
 SECRET_KEY=${secret_key}
 GEMINI_API_KEY=
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+RAG_LLM_PROVIDER=gemini
+RAG_GEMINI_MODEL=gemini-1.5-flash
+RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620
+RAG_EMBEDDING_PROVIDER=gemini
+RAG_GEMINI_EMBEDDING_MODEL=models/embedding-001
+RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 CORS_ALLOW_ORIGINS=http://localhost:8501,http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173
 DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
 DB_DATA_DIR=${REPO_ROOT}/runtime-data/postgres
