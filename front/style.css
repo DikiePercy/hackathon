@@ -1,0 +1,390 @@
+/* ===== RESET & BASE ===== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f4f1ea;
+  color: #222;
+  line-height: 1.6;
+}
+
+a {
+  color: #7a2020;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+a:hover {
+  color: #a03030;
+  text-decoration: underline;
+}
+
+h1, h2, h3, h4 {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #5a1a1a;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ===== HEADER ===== */
+.site-header {
+  background-color: #2b2b2b;
+  color: #e8e4dc;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  font-size: 24px;
+}
+
+.logo-text {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #d4c8a8;
+}
+
+.search-bar {
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 8px 14px;
+  border: 1px solid #555;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  background: #3a3a3a;
+  color: #e8e4dc;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-bar input::placeholder {
+  color: #999;
+}
+
+.search-bar input:focus {
+  border-color: #7a2020;
+}
+
+.search-bar button {
+  padding: 8px 18px;
+  background: #7a2020;
+  color: #f4f1ea;
+  border: 1px solid #7a2020;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.search-bar button:hover {
+  background: #5a1515;
+}
+
+.header-nav {
+  display: flex;
+  gap: 18px;
+  flex-shrink: 0;
+}
+
+.header-nav a {
+  color: #c8c0b0;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.header-nav a:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+/* ===== HERO ===== */
+.hero {
+  background: linear-gradient(180deg, #e8e2d4 0%, #f4f1ea 100%);
+  border-bottom: 1px solid #d5cdba;
+  padding: 40px 20px;
+}
+
+.hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.hero-card {
+  background: #fff;
+  border: 1px solid #d5cdba;
+  border-radius: 6px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.hero-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+}
+
+.hero-card-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.hero-card h3 {
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
+.hero-card p {
+  font-size: 14px;
+  color: #555;
+}
+
+/* ===== MAIN WRAPPER ===== */
+.main-wrapper {
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 30px;
+}
+
+/* ===== CONTENT ===== */
+.content {
+  min-width: 0;
+}
+
+/* Profile */
+.person-name {
+  font-size: 28px;
+  margin-bottom: 4px;
+  color: #5a1a1a;
+  border-bottom: 2px solid #c8b99a;
+  padding-bottom: 8px;
+}
+
+.person-years {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 24px;
+  font-style: italic;
+}
+
+.profile-layout {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 36px;
+}
+
+.profile-meta {
+  flex: 1;
+}
+
+.profile-meta table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.profile-meta td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #ddd5c5;
+  font-size: 14px;
+  vertical-align: top;
+}
+
+.profile-meta td:first-child {
+  font-weight: bold;
+  color: #444;
+  width: 45%;
+  white-space: nowrap;
+}
+
+.profile-photo {
+  flex-shrink: 0;
+}
+
+.profile-photo img {
+  width: 250px;
+  height: auto;
+  border: 3px solid #c8b99a;
+  border-radius: 4px;
+  box-shadow: 3px 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Documents */
+.documents-section {
+  margin-bottom: 36px;
+}
+
+.documents-section h2 {
+  font-size: 22px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #c8b99a;
+  padding-bottom: 6px;
+}
+
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 14px;
+}
+
+.doc-thumb {
+  border: 2px solid #c8b99a;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.doc-thumb:hover {
+  transform: scale(1.05);
+  box-shadow: 3px 5px 14px rgba(0,0,0,0.18);
+}
+
+.doc-thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Biography */
+.biography-section h2 {
+  font-size: 22px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #c8b99a;
+  padding-bottom: 6px;
+}
+
+.biography-text {
+  font-size: 15px;
+  line-height: 1.75;
+  color: #333;
+}
+
+.biography-text p {
+  margin-bottom: 14px;
+  text-indent: 24px;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sidebar-box {
+  background: #333;
+  color: #ddd;
+  border-radius: 5px;
+  padding: 18px 16px;
+}
+
+.sidebar-box h4 {
+  color: #d4c8a8;
+  font-size: 15px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #555;
+  padding-bottom: 6px;
+}
+
+.sidebar-box ul {
+  list-style: none;
+}
+
+.sidebar-box ul li {
+  margin-bottom: 8px;
+}
+
+.sidebar-box ul li a {
+  color: #bbb;
+  font-size: 13px;
+  transition: color 0.2s;
+}
+
+.sidebar-box ul li a:hover {
+  color: #fff;
+}
+
+.sidebar-stat {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.sidebar-stat strong {
+  color: #d4c8a8;
+}
+
+/* ===== FOOTER ===== */
+.site-footer {
+  background: #2b2b2b;
+  color: #999;
+  text-align: center;
+  padding: 20px;
+  font-size: 13px;
+  margin-top: 40px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .hero-inner {
+    grid-template-columns: 1fr;
+  }
+  .main-wrapper {
+    grid-template-columns: 1fr;
+  }
+  .profile-layout {
+    flex-direction: column;
+  }
+  .profile-photo img {
+    width: 200px;
+  }
+  .header-inner {
+    flex-wrap: wrap;
+  }
+  .search-bar {
+    order: 3;
+    max-width: 100%;
+    width: 100%;
+  }
+}
