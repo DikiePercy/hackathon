@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -26,8 +26,13 @@ class PersonCard(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=False)
-    category = Column(String, index=True, nullable=False)
-    description = Column(Text)
+    birth_year = Column(Integer, nullable=False, index=True)
+    death_year = Column(Integer, nullable=True)
+    region = Column(String, index=True, nullable=False)
+    category = Column(String, index=True, nullable=True)
+    charge = Column(Text, nullable=False)
+    description = Column(Text, nullable=False)
+    source = Column(Text, nullable=True)
     lat = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
 
@@ -55,3 +60,14 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Keep existing local DBs usable without a full migration stack.
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS birth_year INTEGER"))
+        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS death_year INTEGER"))
+        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS region VARCHAR"))
+        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS charge TEXT"))
+        conn.execute(text("ALTER TABLE person_cards ADD COLUMN IF NOT EXISTS source TEXT"))
+        conn.execute(text("UPDATE person_cards SET birth_year = 1900 WHERE birth_year IS NULL"))
+        conn.execute(text("UPDATE person_cards SET region = 'Unknown' WHERE region IS NULL"))
+        conn.execute(text("UPDATE person_cards SET charge = 'Unknown' WHERE charge IS NULL"))
+        conn.execute(text("UPDATE person_cards SET description = '' WHERE description IS NULL"))

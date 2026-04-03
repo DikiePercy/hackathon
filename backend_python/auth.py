@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 from database import get_db, User
 import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY or SECRET_KEY == "your-secret-key-change-in-production":
+    raise RuntimeError("SECRET_KEY must be set to a non-default value")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
