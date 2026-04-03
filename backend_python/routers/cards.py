@@ -170,8 +170,14 @@ def import_cards(
 ):
     created = 0
     skipped_duplicates = 0
+    seen_keys = set()
 
     for card_data in cards_data:
+        key = (card_data.name.strip().lower(), card_data.birth_year)
+        if key in seen_keys:
+            skipped_duplicates += 1
+            continue
+
         duplicate = db.query(PersonCard).filter(
             PersonCard.name.ilike(card_data.name),
             PersonCard.birth_year == card_data.birth_year
@@ -181,6 +187,7 @@ def import_cards(
             continue
 
         db.add(PersonCard(**card_data.model_dump()))
+        seen_keys.add(key)
         created += 1
 
     db.commit()
@@ -199,8 +206,14 @@ def import_seed_cards(
 ):
     created = 0
     skipped_duplicates = 0
+    seen_keys = set()
 
     for item in cards_data:
+        key = (item.full_name.strip().lower(), item.birth_year)
+        if key in seen_keys:
+            skipped_duplicates += 1
+            continue
+
         duplicate = db.query(PersonCard).filter(
             PersonCard.name.ilike(item.full_name),
             PersonCard.birth_year == item.birth_year
@@ -221,6 +234,7 @@ def import_seed_cards(
             lat=None,
             lon=None,
         ))
+        seen_keys.add(key)
         created += 1
 
     db.commit()
