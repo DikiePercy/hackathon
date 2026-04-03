@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Алфавитный список жертв — Архив Памяти</title>
+  <meta name="description" content="Алфавитный реестр жертв политических репрессий. Поиск по имени, региону и году.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="list-style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9881;</span>
+        <a href="index.html" class="logo-text">АРХИВ ПАМЯТИ</a>
+      </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
+        <button type="button" id="searchBtn">Найти</button>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Главная</a>
+        <a href="list.html" class="nav-active">База данных</a>
+        <a href="#">О проекте</a>
+        <a href="#">Контакты</a>
+      </nav>
+      <div id="authContainer"></div>
+    </div>
+  </header>
+
+  <!-- PAGE TITLE -->
+  <section class="page-title-section">
+    <div class="page-title-inner">
+      <h1>Алфавитный список жертв репрессий</h1>
+      <p class="page-subtitle">Реестр лиц, пострадавших от политических репрессий. Выберите букву или воспользуйтесь поиском.</p>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-wrapper">
+    <main class="content">
+
+      <!-- Alphabet Bar -->
+      <nav class="alphabet-bar" id="alphabetBar" aria-label="Алфавитная навигация"></nav>
+
+      <!-- Registry List -->
+      <div id="registryList" class="registry-list"></div>
+
+    </main>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-box">
+        <h4>Фильтры</h4>
+        <label class="filter-label" for="filterRegion">Регион</label>
+        <select id="filterRegion" class="filter-select">
+          <option value="">Все регионы</option>
+          <option value="altai">Алтайский край</option>
+          <option value="moscow">Москва</option>
+          <option value="leningrad">Ленинград</option>
+          <option value="novosibirsk">Новосибирская обл.</option>
+          <option value="omsk">Омская обл.</option>
+        </select>
+        <label class="filter-label" for="filterYear">Год репрессии</label>
+        <select id="filterYear" class="filter-select">
+          <option value="">Все годы</option>
+          <option value="1930">1930</option>
+          <option value="1934">1934</option>
+          <option value="1937">1937</option>
+          <option value="1938">1938</option>
+          <option value="1941">1941</option>
+        </select>
+        <button class="filter-apply-btn" type="button">Применить</button>
+      </div>
+      <div class="sidebar-box">
+        <h4>Навигация</h4>
+        <ul>
+          <li><a href="list.html">Списки репрессированных</a></li>
+          <li><a href="#">По регионам</a></li>
+          <li><a href="#">По годам</a></li>
+          <li><a href="#">По статьям обвинения</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-box">
+        <h4>Ресурсы</h4>
+        <ul>
+          <li><a href="#">Архивные фонды</a></li>
+          <li><a href="#">Публикации</a></li>
+          <li><a href="#">Законодательство</a></li>
+          <li><a href="#">Методические материалы</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-box">
+        <h4>Статистика</h4>
+        <p class="sidebar-stat">Записей в базе: <strong>12 487</strong></p>
+        <p class="sidebar-stat">Документов: <strong>3 291</strong></p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <p>&copy; 2024 Архив Памяти. Открытая энциклопедия жертв политических репрессий.</p>
+  </footer>
+
+  <script src="list-script.js"></script>
+</body>
+</html>

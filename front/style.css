@@ -306,114 +306,6 @@ img {
   text-indent: 24px;
 }
 
-/* RAG */
-.rag-section {
-  margin-bottom: 36px;
-}
-
-.rag-section h2 {
-  font-size: 22px;
-  margin-bottom: 12px;
-  border-bottom: 2px solid #c8b99a;
-  padding-bottom: 6px;
-}
-
-.rag-note {
-  color: #555;
-  margin-bottom: 16px;
-}
-
-.rag-auth-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 16px;
-}
-
-.rag-card {
-  border: 1px solid #d8cdb6;
-  border-radius: 6px;
-  background: #fff;
-  padding: 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.rag-card h3 {
-  margin-bottom: 10px;
-}
-
-.rag-form-row {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 10px;
-}
-
-.rag-form-row label {
-  font-size: 13px;
-  color: #555;
-  margin-bottom: 4px;
-}
-
-.rag-form-row input,
-.rag-form-row textarea {
-  border: 1px solid #bcae94;
-  border-radius: 4px;
-  padding: 8px;
-  font-size: 14px;
-  background: #fffdf9;
-}
-
-.rag-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.rag-actions button {
-  border: 1px solid #7a2020;
-  background: #7a2020;
-  color: #fff5ef;
-  border-radius: 4px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.rag-actions .ghost-btn {
-  background: #f4f1ea;
-  color: #7a2020;
-}
-
-.rag-status {
-  margin-top: 10px;
-  font-size: 13px;
-  color: #444;
-}
-
-.rag-messages {
-  background: #f7f2e8;
-  border: 1px solid #d8cdb6;
-  border-radius: 4px;
-  min-height: 140px;
-  max-height: 260px;
-  overflow: auto;
-  padding: 8px;
-  margin-bottom: 10px;
-}
-
-.rag-message {
-  padding: 8px;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.rag-message.user {
-  background: #efe7d7;
-}
-
-.rag-message.assistant {
-  background: #e5efe4;
-}
-
 /* ===== SIDEBAR ===== */
 .sidebar {
   display: flex;
@@ -494,8 +386,5 @@ img {
     order: 3;
     max-width: 100%;
     width: 100%;
-  }
-  .rag-auth-grid {
-    grid-template-columns: 1fr;
   }
 }

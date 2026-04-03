@@ -21,10 +21,12 @@
         <button type="button" id="searchBtn">Найти</button>
       </div>
       <nav class="header-nav">
-        <a href="#">Главная</a>
-        <a href="#">О проекте</a>
+        <a href="index.html">Главная</a>
+        <a href="list.html">База данных</a>
+        <a href="about.html">О проекте</a>
         <a href="#">Контакты</a>
       </nav>
+      <div id="authContainer"></div>
     </div>
   </header>
 
@@ -82,56 +84,10 @@
         <div id="biographyText" class="biography-text"></div>
       </section>
 
-      <section class="rag-section">
-        <h2>RAG: Вход и чат</h2>
-        <p class="rag-note">Регистрация и вход доступны прямо здесь. После входа можно задавать вопросы по документам.</p>
-
-        <div class="rag-auth-grid">
-          <div class="rag-card">
-            <h3>Авторизация</h3>
-            <div class="rag-form-row">
-              <label for="authUsername">Логин</label>
-              <input id="authUsername" type="text" placeholder="username">
-            </div>
-            <div class="rag-form-row">
-              <label for="authPassword">Пароль</label>
-              <input id="authPassword" type="password" placeholder="password">
-            </div>
-            <div class="rag-actions">
-              <button id="registerBtn" type="button">Регистрация</button>
-              <button id="loginBtn" type="button">Войти</button>
-              <button id="logoutBtn" type="button" class="ghost-btn">Выйти</button>
-            </div>
-            <p id="authStatus" class="rag-status">Не авторизован</p>
-          </div>
-
-          <div class="rag-card">
-            <h3>RAG чат</h3>
-            <div id="ragMessages" class="rag-messages"></div>
-            <div class="rag-form-row">
-              <label for="ragQuery">Вопрос</label>
-              <textarea id="ragQuery" rows="3" placeholder="Спросите про документы..."></textarea>
-            </div>
-            <div class="rag-actions">
-              <button id="sendRagBtn" type="button">Отправить</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
     </main>
 
     <!-- SIDEBAR -->
     <aside class="sidebar">
-      <div class="sidebar-box">
-        <h4>Навигация</h4>
-        <ul>
-          <li><a href="#">Списки репрессированных</a></li>
-          <li><a href="#">По регионам</a></li>
-          <li><a href="#">По годам</a></li>
-          <li><a href="#">По статьям обвинения</a></li>
-        </ul>
-      </div>
       <div class="sidebar-box">
         <h4>Ресурсы</h4>
         <ul>
