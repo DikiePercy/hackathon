@@ -36,10 +36,14 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "http://localhost:8000";
+  return "";
 }
 
 const API_BASE = resolveApiBase();
+
+function apiUrl(path) {
+  return API_BASE ? `${API_BASE}${path}` : path;
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -123,11 +127,11 @@ function renderPerson(data) {
 async function loadPerson() {
   const params = new URLSearchParams(window.location.search);
   const personId = Number(params.get("id")) || 1;
-  const apiUrl = `${API_BASE}/api/person/${personId}`;
+  const personApiUrl = apiUrl(`/api/person/${personId}`);
   let data;
 
   try {
-    const response = await fetch(apiUrl);
+    const response = await fetch(personApiUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     console.log("Loaded data from API");
@@ -148,7 +152,7 @@ async function searchPerson() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/api/persons/search?q=${encodeURIComponent(query)}&limit=1`);
+    const response = await fetch(apiUrl(`/api/persons/search?q=${encodeURIComponent(query)}&limit=1`));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const results = await response.json();
     if (!results.length) {
