@@ -119,6 +119,30 @@ APP_DATA_DIR=${REPO_ROOT}/runtime-data/app
 EOF
 }
 
+ensure_required_files() {
+  local required_files=(
+    "$REPO_ROOT/docker-compose.yml"
+    "$REPO_ROOT/backend_cpp/Dockerfile"
+    "$REPO_ROOT/backend_python/Dockerfile"
+    "$REPO_ROOT/frontend_python/Dockerfile"
+    "$REPO_ROOT/front/Dockerfile"
+    "$REPO_ROOT/front/nginx.conf"
+  )
+
+  local missing=0
+  for file_path in "${required_files[@]}"; do
+    if [[ ! -s "$file_path" ]]; then
+      log "Missing or empty required file: $file_path"
+      missing=1
+    fi
+  done
+
+  if [[ "$missing" -ne 0 ]]; then
+    log "Project files look incomplete. Re-upload full zip and rerun start.sh"
+    exit 1
+  fi
+}
+
 compose_cmd() {
   if docker compose version >/dev/null 2>&1; then
     docker compose "$@"
@@ -137,6 +161,7 @@ compose_cmd() {
 ensure_prerequisites
 require_cmd docker
 ensure_env_file
+ensure_required_files
 
 set -a
 # shellcheck disable=SC1091
