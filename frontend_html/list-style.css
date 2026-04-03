@@ -1,0 +1,193 @@
+/* ===== PAGE TITLE ===== */
+.page-title-section {
+  background: linear-gradient(180deg, #e8e2d4 0%, #f4f1ea 100%);
+  border-bottom: 1px solid #d5cdba;
+  padding: 36px 20px 28px;
+}
+
+.page-title-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-title-inner h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 28px;
+  color: #5a1a1a;
+  margin-bottom: 6px;
+  border-bottom: 2px solid #c8b99a;
+  padding-bottom: 10px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
+}
+
+/* ===== ALPHABET BAR ===== */
+.alphabet-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 32px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #d5cdba;
+}
+
+.alphabet-bar a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #ede8dc;
+  border: 1px solid #d5cdba;
+  border-radius: 4px;
+  color: #7a2020;
+  font-family: Georgia, serif;
+  font-size: 15px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.alphabet-bar a:hover,
+.alphabet-bar a.active {
+  background: #5a1a1a;
+  color: #fff;
+  border-color: #5a1a1a;
+  text-decoration: none;
+}
+
+.alphabet-bar a.disabled {
+  color: #bbb5a5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ===== REGISTRY LIST ===== */
+.registry-list {
+  /* clean vertical rhythm */
+}
+
+.letter-section {
+  margin-bottom: 28px;
+}
+
+.letter-heading {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  color: #5a1a1a;
+  border-bottom: 2px solid #c8b99a;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  scroll-margin-top: 80px;
+}
+
+.name-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.name-list li {
+  border-bottom: 1px solid #e4ddd0;
+}
+
+.name-list li:last-child {
+  border-bottom: none;
+}
+
+.name-list a {
+  display: block;
+  padding: 9px 12px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  color: #333;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.name-list a:hover {
+  color: #7a2020;
+  background: #f0ebe0;
+  text-decoration: underline;
+}
+
+.name-list .name-id {
+  color: #999;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* Empty letter */
+.letter-empty {
+  font-size: 13px;
+  color: #aaa;
+  font-style: italic;
+  padding: 4px 12px 8px;
+}
+
+/* ===== SIDEBAR FILTERS ===== */
+.filter-label {
+  display: block;
+  font-size: 12px;
+  color: #bbb;
+  margin-bottom: 4px;
+  margin-top: 12px;
+}
+
+.filter-label:first-of-type {
+  margin-top: 0;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 7px 10px;
+  background: #3a3a3a;
+  color: #e8e4dc;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  border-color: #7a2020;
+}
+
+.filter-apply-btn {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 8px;
+  background: #7a2020;
+  color: #f4f1ea;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.filter-apply-btn:hover {
+  background: #5a1515;
+}
+
+/* ===== NAV ACTIVE ===== */
+.header-nav a.nav-active {
+  color: #fff;
+  border-bottom: 2px solid #d4c8a8;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .alphabet-bar a {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+  }
+}

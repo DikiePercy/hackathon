@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
-import requests
+import httpx
 import os
 from database import get_db, User, ChatHistory, PersonCard, Document, DocumentChunk
 from auth import get_current_user
@@ -63,17 +63,22 @@ async def upload_document(
     
     # Send to C++ backend for processing
     try:
-        response = requests.post(
-            f"{CPP_BACKEND_URL}/process",
-            json={"text": text},
-            timeout=30
-        )
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"{CPP_BACKEND_URL}/process",
+                json={"text": text}
+            )
         response.raise_for_status()
         result = response.json()
-    except requests.RequestException as e:
+    except httpx.RequestError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"C++ backend unavailable: {str(e)}"
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"C++ backend error: {str(e)}"
         )
     
     # Check if document is garbage
