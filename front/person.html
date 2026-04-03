@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Алфавитный список жертв — Архив Памяти</title>
+  <meta name="description" content="Алфавитный реестр жертв политических репрессий. Поиск по имени, региону и году.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="images/iconic_biber.png">
+</head>
+<body>
+    <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9881;</span>
+        <a href="index.html" class="logo-text">АРХИВ ПАМЯТИ</a>
+      </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
+        <button type="button" id="searchBtn">Найти</button>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">Главная</a>
+        <a href="list.html" class="nav-active">База данных</a>
+        <a href="about.html">О проекте</a>
+        <a href="#">Контакты</a>
+      </nav>
+      <div id="authContainer"></div>
+    </div>
+  </header>
+  <div class="main-wrapper">
+    <main class="content">
+
+      <!-- Profile Section -->
+      <section class="profile-section">
+        <h1 id="personName" class="person-name">Загрузка...</h1>
+        <p id="personYears" class="person-years"></p>
+
+        <div class="profile-layout">
+          <div class="profile-meta">
+            <table id="metaTable">
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="profile-photo">
+            <img id="personPhoto" src="" alt="Портрет">
+          </div>
+        </div>
+      </section>
+</body>
+</html>

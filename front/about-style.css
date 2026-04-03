@@ -1,3 +1,11 @@
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'B52', Arial, Helvetica, sans-serif !important;
+}
+
+
 /* Основной контейнер страницы */
 .main-wrapper {
     max-width: 1200px;
@@ -52,7 +60,6 @@
 
 /* Эффект большой первой буквы (буквица) */
 .about-dropcap::first-letter {
-    font-family: Georgia, serif;
     font-size: 4rem;
     color: #800000;
     float: left;
