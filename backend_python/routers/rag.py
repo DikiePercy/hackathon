@@ -161,22 +161,29 @@ async def upload_document(
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(
+async def chat(
     chat_request: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    import asyncio
+    from functools import partial
+    
     query = chat_request.query
     top_k = max(1, min(int(chat_request.top_k or 4), 8))
 
+    # Run RAG in thread pool to avoid blocking event loop
+    loop = asyncio.get_event_loop()
     try:
-        rag_result = answer_with_rag(
+        rag_func = partial(
+            answer_with_rag,
             query=query,
             top_k=top_k,
             candidate_k=max(10, top_k * 4),
             min_score=0.2,
             person_id=chat_request.person_id,
         )
+        rag_result = await loop.run_in_executor(None, rag_func)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
