@@ -16,7 +16,7 @@ RAG_GEMINI_MODEL = os.getenv("RAG_GEMINI_MODEL", "gemini-1.5-flash")
 RAG_CLAUDE_MODEL = os.getenv("RAG_CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
 RAG_GEMINI_EMBEDDING_MODEL = os.getenv("RAG_GEMINI_EMBEDDING_MODEL", "models/embedding-001")
 RAG_OPENAI_EMBEDDING_MODEL = os.getenv("RAG_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://172.17.0.1:11434")
 RAG_OLLAMA_MODEL = os.getenv("RAG_OLLAMA_MODEL", "llama3:8b")
 CHROMA_PATH = os.getenv("CHROMA_PATH", "/app/chroma_db")
 CHROMA_HOST = os.getenv("CHROMA_HOST", "")
@@ -367,14 +367,21 @@ def answer_with_rag(
     unique_sources = sorted(set(sources))
     return {"answer": answer, "sources": unique_sources, "citations": citations}
 
-def get_runtime_config() -> Dict[str, Any]:
+def get_runtime_config(mask_secrets: bool = True) -> Dict[str, Any]:
     """Return current RAG configuration for frontend/admin."""
     return {
+        "rag_llm_provider": RAG_LLM_PROVIDER,
+        "rag_embedding_provider": RAG_EMBEDDING_PROVIDER,
+        "rag_gemini_model": RAG_GEMINI_MODEL,
+        "rag_claude_model": RAG_CLAUDE_MODEL,
+        "rag_ollama_model": RAG_OLLAMA_MODEL,
+        "rag_gemini_embedding_model": RAG_GEMINI_EMBEDDING_MODEL,
+        "rag_openai_embedding_model": RAG_OPENAI_EMBEDDING_MODEL,
         "llm_provider": RAG_LLM_PROVIDER,
         "embedding_provider": RAG_EMBEDDING_PROVIDER,
-        "model": RAG_OLLAMA_MODEL if RAG_LLM_PROVIDER == "ollama" else "gemini"
+        "model": RAG_OLLAMA_MODEL if RAG_LLM_PROVIDER == "ollama" else RAG_GEMINI_MODEL
     }
 
 def update_runtime_config(updates: Dict[str, Any]) -> Dict[str, Any]:
-    """Stub to support old code. Local RAG doesn't update config via API."""
+    """Stub to support old code."""
     return get_runtime_config()
