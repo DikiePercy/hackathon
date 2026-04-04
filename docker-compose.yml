@@ -21,7 +21,7 @@ services:
 
   # 2. ChromaDB Vector Database
   vector_db:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.5.23
     container_name: hackathon_vector_db
     volumes:
       - ${CHROMA_DATA_DIR:-./runtime-data/chroma}:/chroma/chroma

@@ -13,7 +13,7 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "http://localhost:8000";
+  return "";
 }
 
 const API_BASE = resolveApiBase();

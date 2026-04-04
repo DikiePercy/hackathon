@@ -1,5 +1,8 @@
 const CYRILLIC = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ".split("");
+const LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const DEFAULT_ALPHABET = [...CYRILLIC, ...LATIN];
 let allPeople = [];
+let activeAlphabet = [...DEFAULT_ALPHABET];
 
 function tr(key, fallback) {
   return window.AppI18n?.t?.(key) || fallback;
@@ -11,45 +14,73 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "http://localhost:8000";
+  return "";
 }
 
 const API_BASE = resolveApiBase();
 
 function mapPerson(person) {
+  const name = person.full_name || "";
+  const region = person.region || "";
+  const district = person.district || "";
+  const occupation = person.occupation || "";
+  const charge = person.charge || "";
+  const birthYear = person.birth_year || "";
+  const deathYear = person.death_year || "";
+
   return {
     id: person.id,
-    name: person.full_name,
+    name,
     birth_year: person.birth_year,
     death_year: person.death_year,
-    region: person.region || "",
-    district: person.district || "",
-    occupation: person.occupation || "",
-    charge: person.charge || ""
+    region,
+    district,
+    occupation,
+    charge,
+    search_blob: `${name} ${region} ${district} ${occupation} ${charge} ${birthYear} ${deathYear}`.toLowerCase()
   };
 }
 
-function groupByLetter(people) {
+function getFirstLetter(name) {
+  const first = (name || "").trim().charAt(0).toUpperCase();
+  if (!first) return "#";
+  if (DEFAULT_ALPHABET.includes(first)) return first;
+  return "#";
+}
+
+function computeAlphabet(people) {
+  const seen = new Set();
+  people.forEach((p) => {
+    seen.add(getFirstLetter(p.name));
+  });
+
+  const ordered = DEFAULT_ALPHABET.filter((letter) => seen.has(letter));
+  if (seen.has("#")) ordered.push("#");
+
+  return ordered.length ? ordered : [...DEFAULT_ALPHABET];
+}
+
+function groupByLetter(people, alphabet) {
   const groups = {};
-  CYRILLIC.forEach((l) => { groups[l] = []; });
+  alphabet.forEach((l) => { groups[l] = []; });
 
   people.forEach((p) => {
-    const first = (p.name || "").charAt(0).toUpperCase();
+    const first = getFirstLetter(p.name);
     if (groups[first]) {
       groups[first].push(p);
     }
   });
 
-  for (const l of CYRILLIC) {
+  for (const l of alphabet) {
     groups[l].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   }
   return groups;
 }
 
-function renderAlphabetBar(groups) {
+function renderAlphabetBar(alphabet, groups) {
   const bar = document.getElementById("alphabetBar");
   bar.innerHTML = "";
-  CYRILLIC.forEach((letter) => {
+  alphabet.forEach((letter) => {
     const a = document.createElement("a");
     a.href = "#letter-" + letter;
     a.textContent = letter;
@@ -61,11 +92,11 @@ function renderAlphabetBar(groups) {
   });
 }
 
-function renderRegistry(groups) {
+function renderRegistry(alphabet, groups) {
   const container = document.getElementById("registryList");
   container.innerHTML = "";
 
-  CYRILLIC.forEach((letter) => {
+  alphabet.forEach((letter) => {
     const people = groups[letter] || [];
     if (!people.length) return;
 
@@ -122,16 +153,15 @@ function applyFilters() {
   const { query, region, year } = getFilterValues();
 
   const filtered = allPeople.filter((p) => {
-    const text = `${p.name} ${p.region} ${p.district} ${p.occupation} ${p.charge}`.toLowerCase();
-    const byQuery = !query || text.includes(query);
+    const byQuery = !query || p.search_blob.includes(query);
     const byRegion = !region || (p.region || "").toLowerCase() === region;
     const byYear = !year || String(p.birth_year || "") === year || String(p.death_year || "") === year;
     return byQuery && byRegion && byYear;
   });
 
-  const groups = groupByLetter(filtered);
-  renderAlphabetBar(groups);
-  renderRegistry(groups);
+  const groups = groupByLetter(filtered, activeAlphabet);
+  renderAlphabetBar(activeAlphabet, groups);
+  renderRegistry(activeAlphabet, groups);
 }
 
 function fillRegionFilter() {
@@ -200,13 +230,28 @@ function setupSearch() {
 }
 
 async function loadPeople() {
-  const response = await fetch(`${API_BASE}/api/persons?limit=1000&offset=0`);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  const pageSize = 500;
+  let offset = 0;
+  const collected = [];
+
+  while (true) {
+    const response = await fetch(`${API_BASE}/api/persons?limit=${pageSize}&offset=${offset}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const page = Array.isArray(data) ? data : [];
+    collected.push(...page);
+
+    if (page.length < pageSize) {
+      break;
+    }
+    offset += pageSize;
   }
 
-  const data = await response.json();
-  allPeople = Array.isArray(data) ? data.map(mapPerson) : [];
+  allPeople = collected.map(mapPerson);
+  activeAlphabet = computeAlphabet(allPeople);
 }
 
 async function loadStats() {
