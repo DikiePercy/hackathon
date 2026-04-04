@@ -76,6 +76,20 @@ def _build_embeddings() -> Any:
             google_api_key=GEMINI_API_KEY,
         )
 
+    if RAG_EMBEDDING_PROVIDER == "openai":
+        if not OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is not configured")
+        try:
+            from langchain_openai import OpenAIEmbeddings
+        except Exception as exc:
+            raise RuntimeError(
+                "OpenAI embeddings provider requires 'langchain-openai'. Install dependency first"
+            ) from exc
+        return OpenAIEmbeddings(
+            model=RAG_OPENAI_EMBEDDING_MODEL,
+            openai_api_key=OPENAI_API_KEY,
+        )
+
     raise ValueError(f"Unsupported RAG_EMBEDDING_PROVIDER: {RAG_EMBEDDING_PROVIDER}")
 
 
@@ -113,13 +127,39 @@ def _build_llm() -> Any:
             temperature=0.3,
         )
 
-    # Default provider: Gemini
-    if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is not configured")
-    return ChatGoogleGenerativeAI(
-        model=RAG_GEMINI_MODEL,
-        temperature=0.3,
-        google_api_key=GEMINI_API_KEY,
+    if RAG_LLM_PROVIDER == "openai":
+        if not OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is not configured")
+        try:
+            from langchain_openai import ChatOpenAI
+        except Exception as exc:
+            raise RuntimeError(
+                "OpenAI provider requires 'langchain-openai'. Install dependency first"
+            ) from exc
+        return ChatOpenAI(
+            model=os.getenv("RAG_OPENAI_MODEL", "gpt-4o-mini"),
+            api_key=OPENAI_API_KEY,
+            temperature=0.3,
+        )
+
+    if RAG_LLM_PROVIDER == "groq":
+        raise RuntimeError(
+            "Groq provider is configured but not implemented in this backend build. "
+            "Use ollama, gemini, claude, or openai."
+        )
+
+    if RAG_LLM_PROVIDER == "gemini":
+        if not GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is not configured")
+        return ChatGoogleGenerativeAI(
+            model=RAG_GEMINI_MODEL,
+            temperature=0.3,
+            google_api_key=GEMINI_API_KEY,
+        )
+
+    raise ValueError(
+        f"Unsupported RAG_LLM_PROVIDER: {RAG_LLM_PROVIDER}. "
+        "Supported: ollama, gemini, claude, openai"
     )
 
 
