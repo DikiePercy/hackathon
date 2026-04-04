@@ -281,9 +281,11 @@ async def chat(
     try:
         llm = _get_llm()
     except Exception as e:
+        runtime = get_runtime_config()
+        provider = runtime.get("rag_llm_provider") or runtime.get("llm_provider")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"LLM initialization failed: {e}",
+            detail=f"LLM initialization failed (provider={provider}): {e}",
         )
     system_prompt = (
         "Ты строгий, объективный и беспристрастный архивариус базы данных «Архив памяти». "
