@@ -10,25 +10,33 @@
 </head>
 <body>
 
+  <!-- Language Switcher -->
+  <div class="lang-switcher">
+    <button class="lang-btn" data-lang="ru" onclick="setLanguage('ru')" title="Русский">RU</button>
+    <button class="lang-btn" data-lang="ky" onclick="setLanguage('ky')" title="Кыргызча">KY</button>
+    <button class="lang-btn" data-lang="en" onclick="setLanguage('en')" title="English">EN</button>
+    <button class="lang-btn" data-lang="tr" onclick="setLanguage('tr')" title="Türkçe">TR</button>
+  </div>
+
   <!-- HEADER -->
   <header class="site-header">
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon">&#9881;</span>
-        <span class="logo-text">АРХИВ ПАМЯТИ</span>
+        <span class="logo-text" data-i18n="site_title">АРХИВ ПАМЯТИ</span>
       </div>
       <div class="search-bar">
-        <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
-        <button type="button" id="searchBtn">Найти</button>
+        <input type="text" data-i18n="search_placeholder" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
+        <button type="button" id="searchBtn" data-i18n="search_btn">Найти</button>
       </div>
       <nav class="header-nav">
-        <a href="index.html">Главная</a>
-        <a href="list.html">База данных</a>
-        <a href="chat.html">Чат AI</a>
-        <a href="suggestions.html">Предложить запись</a>
-        <a href="admin.html">Админ</a>
-        <a href="about.html">О проекте</a>
-        <a href="contacts.html">Контакты</a>
+        <a href="index.html" data-i18n="nav_main">Главная</a>
+        <a href="list.html" data-i18n="nav_db">База данных</a>
+        <a href="chat.html" data-i18n="nav_chat">Чат AI</a>
+        <a href="suggestions.html" data-i18n="nav_suggestions">Предложить запись</a>
+        <a href="admin.html" data-i18n="nav_admin">Админ</a>
+        <a href="about.html" data-i18n="nav_about">О проекте</a>
+        <a href="contacts.html" data-i18n="nav_contacts">Контакты</a>
       </nav>
       <div id="authContainer"></div>
     </div>
@@ -39,18 +47,18 @@
     <div class="hero-inner">
       <div class="hero-card">
         <div class="hero-card-icon">&#128269;</div>
-        <h3>Найти человека</h3>
-        <p>Введите имя или фамилию в строку поиска, чтобы найти информацию о жертве репрессий.</p>
+        <h3 data-i18n="hero_find">Найти человека</h3>
+        <p data-i18n="hero_find_desc">Введите имя или фамилию в строку поиска, чтобы найти информацию о жертве репрессий.</p>
       </div>
       <div class="hero-card">
         <div class="hero-card-icon">&#9998;</div>
-        <h3>Добавить сведения</h3>
-        <p>Помогите дополнить архив — загрузите документы и воспоминания о ваших родственниках.</p>
+        <h3 data-i18n="hero_add">Добавить сведения</h3>
+        <p data-i18n="hero_add_desc">Помогите дополнить архив — загрузите документы и воспоминания о ваших родственниках.</p>
       </div>
       <div class="hero-card">
         <div class="hero-card-icon">&#10084;</div>
-        <h3>Помочь проекту</h3>
-        <p>Станьте волонтёром или поддержите проект. Каждый вклад помогает сохранить память.</p>
+        <h3 data-i18n="hero_help">Помочь проекту</h3>
+        <p data-i18n="hero_help_desc">Станьте волонтёром или поддержите проект. Каждый вклад помогает сохранить память.</p>
       </div>
     </div>
   </section>
@@ -111,9 +119,10 @@
 
   <!-- FOOTER -->
   <footer class="site-footer">
-    <p>&copy; 2024 Архив Памяти. Открытая энциклопедия жертв политических репрессий.</p>
+    <p data-i18n="footer_text">&copy; 2024 Архив Памяти. Открытая энциклопедия жертв политических репрессий.</p>
   </footer>
 
+  <script src="i18n.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
