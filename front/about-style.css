@@ -96,3 +96,58 @@
     font-size: 0.85rem;
     color: #666;
 }
+
+@media (max-width: 900px) {
+    .main-wrapper {
+        margin: 20px auto;
+        gap: 18px;
+        padding: 0 12px;
+        grid-template-columns: 1fr;
+    }
+
+    .about-title {
+        font-size: 1.8rem;
+        line-height: 1.25;
+    }
+
+    .about-section-title {
+        font-size: 1.3rem;
+        margin-top: 26px;
+    }
+
+    .about-dropcap::first-letter {
+        font-size: 3rem;
+        margin-top: 3px;
+    }
+}
+
+@media (max-width: 520px) {
+    .about-breadcrumbs {
+        font-size: 0.78rem;
+        margin-bottom: 10px;
+    }
+
+    .about-back-link {
+        margin-bottom: 18px;
+        font-size: 0.92rem;
+    }
+
+    .about-title {
+        font-size: 1.45rem;
+        margin-bottom: 14px;
+    }
+
+    .about-text {
+        font-size: 0.96rem;
+        line-height: 1.65;
+    }
+
+    .about-dropcap::first-letter {
+        font-size: 2.4rem;
+    }
+
+    .about-grid-3 {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}

@@ -1,5 +1,12 @@
 const CYRILLIC = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ".split("");
+const LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const DEFAULT_ALPHABET = [...CYRILLIC, ...LATIN];
 let allPeople = [];
+let activeAlphabet = [...DEFAULT_ALPHABET];
+
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -7,45 +14,73 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "http://localhost:8000";
+  return "";
 }
 
 const API_BASE = resolveApiBase();
 
 function mapPerson(person) {
+  const name = person.full_name || "";
+  const region = person.region || "";
+  const district = person.district || "";
+  const occupation = person.occupation || "";
+  const charge = person.charge || "";
+  const birthYear = person.birth_year || "";
+  const deathYear = person.death_year || "";
+
   return {
     id: person.id,
-    name: person.full_name,
+    name,
     birth_year: person.birth_year,
     death_year: person.death_year,
-    region: person.region || "",
-    district: person.district || "",
-    occupation: person.occupation || "",
-    charge: person.charge || ""
+    region,
+    district,
+    occupation,
+    charge,
+    search_blob: `${name} ${region} ${district} ${occupation} ${charge} ${birthYear} ${deathYear}`.toLowerCase()
   };
 }
 
-function groupByLetter(people) {
+function getFirstLetter(name) {
+  const first = (name || "").trim().charAt(0).toUpperCase();
+  if (!first) return "#";
+  if (DEFAULT_ALPHABET.includes(first)) return first;
+  return "#";
+}
+
+function computeAlphabet(people) {
+  const seen = new Set();
+  people.forEach((p) => {
+    seen.add(getFirstLetter(p.name));
+  });
+
+  const ordered = DEFAULT_ALPHABET.filter((letter) => seen.has(letter));
+  if (seen.has("#")) ordered.push("#");
+
+  return ordered.length ? ordered : [...DEFAULT_ALPHABET];
+}
+
+function groupByLetter(people, alphabet) {
   const groups = {};
-  CYRILLIC.forEach((l) => { groups[l] = []; });
+  alphabet.forEach((l) => { groups[l] = []; });
 
   people.forEach((p) => {
-    const first = (p.name || "").charAt(0).toUpperCase();
+    const first = getFirstLetter(p.name);
     if (groups[first]) {
       groups[first].push(p);
     }
   });
 
-  for (const l of CYRILLIC) {
+  for (const l of alphabet) {
     groups[l].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   }
   return groups;
 }
 
-function renderAlphabetBar(groups) {
+function renderAlphabetBar(alphabet, groups) {
   const bar = document.getElementById("alphabetBar");
   bar.innerHTML = "";
-  CYRILLIC.forEach((letter) => {
+  alphabet.forEach((letter) => {
     const a = document.createElement("a");
     a.href = "#letter-" + letter;
     a.textContent = letter;
@@ -57,11 +92,11 @@ function renderAlphabetBar(groups) {
   });
 }
 
-function renderRegistry(groups) {
+function renderRegistry(alphabet, groups) {
   const container = document.getElementById("registryList");
   container.innerHTML = "";
 
-  CYRILLIC.forEach((letter) => {
+  alphabet.forEach((letter) => {
     const people = groups[letter] || [];
     if (!people.length) return;
 
@@ -103,20 +138,30 @@ function getFilterValues() {
   };
 }
 
+function initSearchFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const q = (params.get("q") || "").trim();
+  if (!q) return;
+
+  const input = document.getElementById("searchInput");
+  if (input) {
+    input.value = q;
+  }
+}
+
 function applyFilters() {
   const { query, region, year } = getFilterValues();
 
   const filtered = allPeople.filter((p) => {
-    const text = `${p.name} ${p.region} ${p.district} ${p.occupation} ${p.charge}`.toLowerCase();
-    const byQuery = !query || text.includes(query);
-    const byRegion = !region || (p.region || "").toLowerCase().includes(region);
+    const byQuery = !query || p.search_blob.includes(query);
+    const byRegion = !region || (p.region || "").toLowerCase() === region;
     const byYear = !year || String(p.birth_year || "") === year || String(p.death_year || "") === year;
     return byQuery && byRegion && byYear;
   });
 
-  const groups = groupByLetter(filtered);
-  renderAlphabetBar(groups);
-  renderRegistry(groups);
+  const groups = groupByLetter(filtered, activeAlphabet);
+  renderAlphabetBar(activeAlphabet, groups);
+  renderRegistry(activeAlphabet, groups);
 }
 
 function fillRegionFilter() {
@@ -129,14 +174,21 @@ function fillRegionFilter() {
     }
   });
 
-  const values = Array.from(existing).sort((a, b) => a.localeCompare(b, "ru"));
-  select.innerHTML = "<option value=''>Все регионы</option>";
+  const values = Array.from(existing)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ru"));
+  const selected = (select.value || "").trim();
+  select.innerHTML = `<option value=''>${tr("filter_all_regions", "All regions")}</option>`;
   values.forEach((region) => {
     const option = document.createElement("option");
     option.value = region;
     option.textContent = region;
     select.appendChild(option);
   });
+  if (selected && values.includes(selected)) {
+    select.value = selected;
+  }
 }
 
 function fillYearFilter() {
@@ -148,14 +200,18 @@ function fillYearFilter() {
     if (p.death_year) existing.add(String(p.death_year));
   });
 
-  const values = Array.from(existing).sort();
-  select.innerHTML = "<option value=''>Все годы</option>";
+  const values = Array.from(existing).sort((a, b) => Number(a) - Number(b));
+  const selected = (select.value || "").trim();
+  select.innerHTML = `<option value=''>${tr("filter_all_years", "All years")}</option>`;
   values.forEach((year) => {
     const option = document.createElement("option");
     option.value = year;
     option.textContent = year;
     select.appendChild(option);
   });
+  if (selected && values.includes(selected)) {
+    select.value = selected;
+  }
 }
 
 function setupSearch() {
@@ -174,22 +230,58 @@ function setupSearch() {
 }
 
 async function loadPeople() {
-  const response = await fetch(`${API_BASE}/api/persons?limit=1000&offset=0`);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  const pageSize = 500;
+  let offset = 0;
+  const collected = [];
+
+  while (true) {
+    const response = await fetch(`${API_BASE}/api/persons?limit=${pageSize}&offset=${offset}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const page = Array.isArray(data) ? data : [];
+    collected.push(...page);
+
+    if (page.length < pageSize) {
+      break;
+    }
+    offset += pageSize;
   }
 
-  const data = await response.json();
-  allPeople = Array.isArray(data) ? data.map(mapPerson) : [];
+  allPeople = collected.map(mapPerson);
+  activeAlphabet = computeAlphabet(allPeople);
+}
+
+async function loadStats() {
+  const personsEl = document.getElementById("statsPersons");
+  const docsEl = document.getElementById("statsDocuments");
+  if (!personsEl || !docsEl) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/stats`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const stats = await response.json();
+    personsEl.textContent = String(stats.persons ?? 0);
+    docsEl.textContent = String(stats.documents ?? 0);
+  } catch (_err) {
+    personsEl.textContent = "-";
+    docsEl.textContent = "-";
+  }
 }
 
 function showError(message) {
   const container = document.getElementById("registryList");
-  container.innerHTML = `<div class='letter-empty'>Ошибка загрузки списка: ${message}</div>`;
+  container.innerHTML = `<div class='letter-empty'>${tr("list_error_prefix", "Failed to load list:")} ${message}</div>`;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
   setupSearch();
+  loadStats();
+  initSearchFromUrl();
   try {
     await loadPeople();
     fillRegionFilter();
@@ -198,4 +290,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     showError(err.message);
   }
+
+  window.addEventListener("site-language-changed", () => {
+    fillRegionFilter();
+    fillYearFilter();
+    applyFilters();
+  });
 });

@@ -17,84 +17,121 @@
       <nav class="header-nav">
         <a href="index.html">Главная</a>
         <a href="list.html">База данных</a>
-        <a href="chat.html">Чат AI</a>
-        <a href="suggestions.html">Предложить запись</a>
-        <a href="admin.html" class="nav-active">Админ</a>
         <a href="about.html">О проекте</a>
         <a href="contacts.html">Контакты</a>
+        <a href="admin.html" class="nav-active">Админ</a>
       </nav>
     </div>
   </header>
 
-  <div class="main-wrapper">
+  <div class="main-wrapper page-wide">
     <main class="content">
       <section class="biography-section">
-        <h2>Админ панель</h2>
-
-        <div class="admin-panel">
-          <h3>Вход администратора</h3>
-          <div class="admin-form-grid">
-            <input id="adminUser" type="text" placeholder="Логин">
-            <input id="adminPass" type="password" placeholder="Пароль">
-          </div>
+        <h2 data-i18n="admin_title">Админ панель</h2>
+        <div class="admin-panel" id="adminAccessPanel">
+          <h3 data-i18n="admin_access_title">Доступ к админке</h3>
+          <p id="adminStatus" data-i18n="admin_access_desc">Доступ только для администратора.</p>
           <div class="admin-actions">
-            <button id="adminLoginBtn" type="button">Войти</button>
-            <button id="adminLogoutBtn" type="button">Выйти</button>
-            <button id="adminWhoamiBtn" type="button">Проверить сессию</button>
+            <button id="openAdminLoginModalBtn" type="button" data-i18n="admin_login_btn">Зайти как админ</button>
           </div>
-          <p id="adminStatus">Не авторизован</p>
         </div>
 
-        <div class="admin-panel">
-          <h3>Импорт seed (JSON массив)</h3>
+        <div class="admin-panel admin-protected" hidden>
+          <h3 data-i18n="admin_import_title">Импорт seed (JSON массив)</h3>
           <input id="seedFile" type="file" accept="application/json,.json">
           <div class="admin-actions">
-            <button id="seedImportBtn" type="button">Импортировать seed</button>
+            <button id="seedImportBtn" type="button" data-i18n="admin_import_btn">Импортировать seed</button>
+            <button id="seedExamplesImportBtn" type="button" data-i18n="admin_import_examples_btn">Импортировать встроенные seed</button>
           </div>
         </div>
 
-        <div class="admin-panel">
-          <h3>Добавить карточку вручную</h3>
-          <div class="admin-form-grid">
-            <input id="createName" type="text" placeholder="ФИО *">
-            <input id="createRegion" type="text" placeholder="Регион">
-            <input id="createDistrict" type="text" placeholder="Район">
-            <input id="createBirthYear" type="number" placeholder="Год рождения">
-            <input id="createDeathYear" type="number" placeholder="Год смерти">
-            <input id="createNationality" type="text" placeholder="Национальность">
-            <input id="createOccupation" type="text" placeholder="Профессия / категория">
-            <input id="createCharge" type="text" placeholder="Обвинение">
-            <input id="createSentence" type="text" placeholder="Приговор">
-            <input id="createArrestDate" type="date" placeholder="Дата ареста">
-            <input id="createSentenceDate" type="date" placeholder="Дата приговора">
-            <input id="createRehabilitationDate" type="date" placeholder="Дата реабилитации">
-            <input id="createSource" type="text" placeholder="Источник">
-            <input id="createStatus" type="text" placeholder="Статус (verified)">
+        <div class="admin-panel admin-protected" hidden>
+          <h3>Массовый импорт документов (до 20 за раз)</h3>
+          <div class="admin-form-grid admin-form-vertical">
+            <input id="batchPersonId" type="number" placeholder="ID карточки (необязательно)">
+            <input id="batchDocuments" type="file" accept=".txt,.md,text/plain,text/markdown" multiple>
           </div>
-          <textarea id="createBiography" rows="5" placeholder="Биография"></textarea>
           <div class="admin-actions">
-            <button id="createCardBtn" type="button">Создать карточку</button>
+            <button id="batchImportDocsBtn" type="button">Импортировать документы пакетом</button>
           </div>
         </div>
 
-        <div class="admin-panel">
-          <h3>Список карточек и удаление</h3>
+        <div class="admin-panel admin-protected" hidden>
+          <h3 data-i18n="admin_ai_settings_title">Настройки AI токенов и провайдеров</h3>
+          <div class="admin-form-grid admin-form-vertical">
+            <label for="llmProvider" data-i18n="admin_llm_provider_label">LLM провайдер</label>
+            <select id="llmProvider">
+              <option value="gemini">gemini</option>
+              <option value="openai">openai</option>
+              <option value="claude">claude</option>
+              <option value="groq">groq</option>
+            </select>
+
+            <label for="embeddingProvider" data-i18n="admin_embedding_provider_label">Embedding провайдер</label>
+            <select id="embeddingProvider">
+              <option value="gemini">gemini</option>
+              <option value="openai">openai</option>
+            </select>
+
+            <input id="geminiApiKey" type="password" placeholder="GEMINI_API_KEY">
+            <input id="openaiApiKey" type="password" placeholder="OPENAI_API_KEY">
+            <input id="anthropicApiKey" type="password" placeholder="ANTHROPIC_API_KEY">
+            <input id="groqApiKey" type="password" placeholder="GROQ_API_KEY">
+            <input id="geminiModel" type="text" placeholder="RAG_GEMINI_MODEL">
+            <input id="openaiModel" type="text" placeholder="RAG_OPENAI_MODEL">
+            <input id="claudeModel" type="text" placeholder="RAG_CLAUDE_MODEL">
+            <input id="groqModel" type="text" placeholder="RAG_GROQ_MODEL">
+            <input id="geminiEmbeddingModel" type="text" placeholder="RAG_GEMINI_EMBEDDING_MODEL">
+            <input id="openaiEmbeddingModel" type="text" placeholder="RAG_OPENAI_EMBEDDING_MODEL">
+          </div>
           <div class="admin-actions">
-            <button id="refreshCardsBtn" type="button">Обновить список</button>
+            <button id="loadAiConfigBtn" type="button" data-i18n="admin_ai_load_btn">Обновить значения</button>
+            <button id="saveAiConfigBtn" type="button" data-i18n="admin_ai_save_btn">Сохранить AI настройки</button>
+          </div>
+        </div>
+
+        <div class="admin-panel admin-protected" hidden>
+          <h3 data-i18n="admin_create_title">Добавить карточку вручную</h3>
+          <div class="admin-form-grid admin-form-vertical">
+            <input id="createName" type="text" data-i18n="ph_full_name_required" placeholder="ФИО *">
+            <input id="createRegion" type="text" data-i18n="ph_region" placeholder="Регион">
+            <input id="createDistrict" type="text" data-i18n="ph_district" placeholder="Район">
+            <input id="createBirthYear" type="number" data-i18n="ph_birth_year" placeholder="Год рождения">
+            <input id="createDeathYear" type="number" data-i18n="ph_death_year" placeholder="Год смерти">
+            <input id="createNationality" type="text" data-i18n="ph_nationality" placeholder="Национальность">
+            <input id="createOccupation" type="text" data-i18n="ph_occupation_category" placeholder="Профессия / категория">
+            <input id="createCharge" type="text" data-i18n="ph_charge" placeholder="Обвинение">
+            <input id="createSentence" type="text" data-i18n="ph_sentence" placeholder="Приговор">
+            <input id="createArrestDate" type="date" data-i18n="ph_arrest_date" placeholder="Дата ареста">
+            <input id="createSentenceDate" type="date" data-i18n="ph_sentence_date" placeholder="Дата приговора">
+            <input id="createRehabilitationDate" type="date" data-i18n="ph_rehabilitation_date" placeholder="Дата реабилитации">
+            <input id="createSource" type="text" data-i18n="ph_source" placeholder="Источник">
+            <input id="createStatus" type="text" data-i18n="ph_status_verified_short" placeholder="Статус (verified)">
+          </div>
+          <textarea id="createBiography" rows="5" data-i18n="ph_biography" placeholder="Биография"></textarea>
+          <div class="admin-actions">
+            <button id="createCardBtn" type="button" data-i18n="admin_create_btn">Создать карточку</button>
+          </div>
+        </div>
+
+        <div class="admin-panel admin-protected" hidden>
+          <h3 data-i18n="admin_cards_title">Список карточек и удаление</h3>
+          <div class="admin-actions">
+            <button id="refreshCardsBtn" type="button" data-i18n="admin_refresh_cards">Обновить список</button>
           </div>
           <div id="adminCardsList" class="admin-cards-list"></div>
         </div>
 
-        <div class="admin-panel">
-          <h3>Модерация предложений</h3>
+        <div class="admin-panel admin-protected" hidden>
+          <h3 data-i18n="admin_moderation_title">Модерация предложений</h3>
           <div class="admin-actions">
             <select id="suggestionsStateFilter">
-              <option value="pending" selected>Только pending</option>
-              <option value="approved">Только approved</option>
-              <option value="rejected">Только rejected</option>
-              <option value="">Все</option>
+              <option value="pending" selected data-i18n="admin_filter_pending">Только pending</option>
+              <option value="approved" data-i18n="admin_filter_approved">Только approved</option>
+              <option value="rejected" data-i18n="admin_filter_rejected">Только rejected</option>
+              <option value="" data-i18n="admin_filter_all">Все</option>
             </select>
-            <button id="loadSuggestionsBtn" type="button">Загрузить предложения</button>
+            <button id="loadSuggestionsBtn" type="button" data-i18n="admin_load_suggestions">Загрузить предложения</button>
           </div>
           <div id="adminSuggestionsList" class="admin-cards-list"></div>
         </div>
@@ -106,6 +143,8 @@
     <p>&copy; 2024 Архив Памяти</p>
   </footer>
 
+  <script src="i18n.js"></script>
+  <script src="header-auth.js"></script>
   <script src="admin-script.js"></script>
 </body>
 </html>

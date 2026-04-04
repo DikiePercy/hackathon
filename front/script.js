@@ -1,11 +1,21 @@
-const META_LABELS = {
-  nationality: "Национальность",
-  occupation: "Профессия / должность",
-  arrest_date: "Дата ареста",
-  sentence: "Приговор",
-  sentence_date: "Дата приговора",
-  rehabilitation_date: "Дата реабилитации"
-};
+let currentPersonData = null;
+
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
+function getMetaLabels() {
+  return {
+    birth_year: tr("ph_birth_year", "Год рождения"),
+    death_year: tr("ph_death_year", "Год смерти"),
+    nationality: tr("ph_nationality", "Национальность"),
+    occupation: tr("ph_occupation", "Профессия / должность"),
+    arrest_date: tr("ph_arrest_date", "Дата ареста"),
+    sentence: tr("ph_sentence", "Приговор"),
+    sentence_date: tr("ph_sentence_date", "Дата приговора"),
+    rehabilitation_date: tr("ph_rehabilitation_date", "Дата реабилитации")
+  };
+}
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -13,10 +23,33 @@ function resolveApiBase() {
   if (fromQuery) {
     return fromQuery.replace(/\/$/, "");
   }
-  return "http://localhost:8000";
+  return "";
 }
 
 const API_BASE = resolveApiBase();
+
+function resolveMediaUrl(url) {
+  const value = (url || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) {
+    return value;
+  }
+  if (value.startsWith("/") && API_BASE) {
+    return `${API_BASE}${value}`;
+  }
+  return value;
+}
+
+function setPortraitVisible(visible) {
+  const photoWrap = document.querySelector(".profile-photo");
+  const photoEl = document.getElementById("personPhoto");
+  if (photoWrap) {
+    photoWrap.style.display = visible ? "block" : "none";
+  }
+  if (!visible && photoEl) {
+    photoEl.removeAttribute("src");
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return "-";
@@ -28,13 +61,23 @@ function formatDate(dateStr) {
 }
 
 function renderPerson(data) {
+  currentPersonData = data;
   document.getElementById("personName").textContent = data.full_name;
   const years = [data.birth_year, data.death_year].filter(Boolean).join(" - ");
   document.getElementById("personYears").textContent = years ? `(${years})` : "";
 
   const photoEl = document.getElementById("personPhoto");
-  photoEl.src = data.photo_url || "https://via.placeholder.com/250x350.png?text=Archive";
-  photoEl.alt = "Портрет: " + data.full_name;
+  if (data.photo_url) {
+    setPortraitVisible(true);
+    photoEl.src = resolveMediaUrl(data.photo_url);
+    photoEl.onerror = () => {
+      photoEl.onerror = null;
+      setPortraitVisible(false);
+    };
+    photoEl.alt = "Портрет: " + data.full_name;
+  } else {
+    setPortraitVisible(false);
+  }
 
   const tbody = document.querySelector("#metaTable tbody");
   tbody.innerHTML = "";
@@ -50,10 +93,12 @@ function renderPerson(data) {
     tbody.appendChild(tr);
   };
 
-  addRow("Год рождения", data.birth_year);
-  addRow("Год смерти", data.death_year);
+  const labels = getMetaLabels();
+  addRow(labels.birth_year, data.birth_year);
+  addRow(labels.death_year, data.death_year);
 
-  for (const [key, label] of Object.entries(META_LABELS)) {
+  for (const [key, label] of Object.entries(labels)) {
+    if (key === "birth_year" || key === "death_year") continue;
     let value = data[key];
     if (key.includes("date")) {
       value = formatDate(value);
@@ -68,11 +113,13 @@ function renderPerson(data) {
       const div = document.createElement("div");
       div.className = "doc-thumb";
       const img = document.createElement("img");
-      img.src = url;
+      img.src = resolveMediaUrl(url);
       img.alt = `Документ ${i + 1}`;
       div.appendChild(img);
       grid.appendChild(div);
     });
+  } else {
+    grid.textContent = tr("profile_no_documents", "Документы пока не добавлены");
   }
 
   const bioDiv = document.getElementById("biographyText");
@@ -86,21 +133,84 @@ function renderPerson(data) {
       p.textContent = text;
       bioDiv.appendChild(p);
     });
+  } else {
+    bioDiv.textContent = tr("profile_no_biography", "Биография пока не добавлена");
   }
 }
 
-function showLoadError(message) {
-  document.getElementById("personName").textContent = "Ошибка загрузки";
-  document.getElementById("personYears").textContent = message;
-  document.getElementById("biographyText").textContent = "Проверьте доступность backend API.";
+function showNoDataState() {
+  currentPersonData = null;
+  document.getElementById("personName").textContent = tr("profile_no_data_title", "Пока нет данных");
+  document.getElementById("personYears").textContent = "";
+
+  setPortraitVisible(false);
+
+  const tbody = document.querySelector("#metaTable tbody");
+  tbody.innerHTML = "";
+
+  const grid = document.getElementById("documentsGrid");
+  grid.innerHTML = "";
+  grid.textContent = tr("profile_no_documents", "Документы пока не добавлены");
+
+  const bioDiv = document.getElementById("biographyText");
+  bioDiv.innerHTML = "";
+  bioDiv.textContent = tr("profile_no_data_body", "В базе пока нет данных.");
 }
 
-async function loadPerson() {
+async function loadStats() {
+  const personsEl = document.getElementById("statsPersons");
+  const docsEl = document.getElementById("statsDocuments");
+
+  try {
+    const response = await fetch(`${API_BASE}/api/stats`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const stats = await response.json();
+    personsEl.textContent = String(stats.persons ?? 0);
+    docsEl.textContent = String(stats.documents ?? 0);
+  } catch (_err) {
+    personsEl.textContent = "-";
+    docsEl.textContent = "-";
+  }
+}
+
+async function resolveInitialPersonId() {
   const params = new URLSearchParams(window.location.search);
-  const personId = Number(params.get("id")) || 1;
+  const fromQuery = Number(params.get("id"));
+  if (Number.isInteger(fromQuery) && fromQuery > 0) {
+    return fromQuery;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/persons?limit=1&offset=0`);
+    if (!response.ok) {
+      return null;
+    }
+    const people = await response.json();
+    if (!Array.isArray(people) || people.length === 0) {
+      return null;
+    }
+    return Number(people[0].id) || null;
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function loadPerson(personId) {
+  if (!personId) {
+    showNoDataState();
+    return;
+  }
+
   const response = await fetch(`${API_BASE}/api/person/${personId}`);
+  if (response.status === 404) {
+    showNoDataState();
+    return;
+  }
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    showNoDataState();
+    return;
   }
   const data = await response.json();
   renderPerson(data);
@@ -110,7 +220,8 @@ async function searchPerson() {
   const input = document.getElementById("searchInput");
   const query = (input.value || "").trim();
   if (!query) {
-    await loadPerson();
+    const personId = await resolveInitialPersonId();
+    await loadPerson(personId);
     return;
   }
 
@@ -121,7 +232,7 @@ async function searchPerson() {
 
   const results = await response.json();
   if (!results.length) {
-    alert("Ничего не найдено");
+    showNoDataState();
     return;
   }
 
@@ -129,7 +240,35 @@ async function searchPerson() {
   const url = new URL(window.location.href);
   url.searchParams.set("id", String(person.id));
   history.replaceState(null, "", url.toString());
-  await loadPerson();
+  await loadPerson(Number(person.id));
+}
+
+function bindCardAction(element, action) {
+  if (!element) return;
+  element.addEventListener("click", action);
+  element.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      action();
+    }
+  });
+}
+
+function setupHeroCards() {
+  const searchInput = document.getElementById("searchInput");
+
+  bindCardAction(document.getElementById("heroFindCard"), () => {
+    searchInput.focus();
+    searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  bindCardAction(document.getElementById("heroSuggestCard"), () => {
+    window.location.href = "suggestions.html";
+  });
+
+  bindCardAction(document.getElementById("heroHelpCard"), () => {
+    window.location.href = "contacts.html";
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -137,24 +276,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("searchInput");
 
   btn.addEventListener("click", async () => {
-    try {
-      await searchPerson();
-    } catch (err) {
-      showLoadError(`Поиск недоступен: ${err.message}`);
-    }
+    await searchPerson();
   });
 
   input.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
-      try {
-        await searchPerson();
-      } catch (err) {
-        showLoadError(`Поиск недоступен: ${err.message}`);
-      }
+      await searchPerson();
     }
   });
 
-  loadPerson().catch((err) => {
-    showLoadError(err.message);
+  setupHeroCards();
+  loadStats();
+  document.getElementById("personName").textContent = tr("profile_loading", "Загрузка...");
+  resolveInitialPersonId().then((personId) => loadPerson(personId));
+
+  window.addEventListener("site-language-changed", () => {
+    if (currentPersonData) {
+      renderPerson(currentPersonData);
+    } else {
+      showNoDataState();
+    }
   });
 });

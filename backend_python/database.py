@@ -60,6 +60,7 @@ class PersonCard(Base):
     status = Column(String, nullable=True)
     description = Column(Text, nullable=False)
     source = Column(Text, nullable=True)
+    photo_url = Column(Text, nullable=True)
     lat = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -135,6 +136,8 @@ class PersonSuggestion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    target_person_id = Column(Integer, ForeignKey("person_cards.id"), nullable=True, index=True)
+    suggestion_kind = Column(String, nullable=False, default="create", server_default="create")
 
     full_name = Column(String, nullable=False, index=True)
     birth_year = Column(Integer, nullable=False, default=1900)
@@ -150,6 +153,10 @@ class PersonSuggestion(Base):
     rehabilitation_date = Column(Date, nullable=True)
     biography = Column(Text, nullable=False, default="")
     source = Column(Text, nullable=True)
+    photo_url = Column(Text, nullable=True)
+    document_url = Column(Text, nullable=True)
+    document_filename = Column(String, nullable=True)
+    document_text = Column(Text, nullable=True)
     status = Column(String, nullable=True)
 
     state = Column(String, nullable=False, default="pending", server_default="pending")
@@ -190,6 +197,15 @@ def _apply_lightweight_migrations() -> None:
         _ensure_column("person_cards", "sentence_date", "DATE")
         _ensure_column("person_cards", "rehabilitation_date", "DATE")
         _ensure_column("person_cards", "status", "VARCHAR")
+        _ensure_column("person_cards", "photo_url", "TEXT")
+
+    if inspector.has_table("person_suggestions"):
+        _ensure_column("person_suggestions", "target_person_id", "INTEGER")
+        _ensure_column("person_suggestions", "suggestion_kind", "VARCHAR", default="'create'")
+        _ensure_column("person_suggestions", "photo_url", "TEXT")
+        _ensure_column("person_suggestions", "document_url", "TEXT")
+        _ensure_column("person_suggestions", "document_filename", "VARCHAR")
+        _ensure_column("person_suggestions", "document_text", "TEXT")
 
 
 def _ensure_column(table_name: str, column_name: str, sql_type: str, default: str | None = None) -> None:

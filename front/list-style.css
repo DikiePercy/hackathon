@@ -185,9 +185,62 @@
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {
+  .page-title-section {
+    padding: 20px 12px 16px;
+  }
+
+  .page-title-inner h1 {
+    font-size: 22px;
+    margin-bottom: 4px;
+    padding-bottom: 8px;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+  }
+
+  .alphabet-bar {
+    gap: 5px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
+
   .alphabet-bar a {
     width: 30px;
     height: 30px;
+    font-size: 13px;
+  }
+
+  .letter-heading {
+    font-size: 19px;
+    margin-bottom: 8px;
+  }
+
+  .name-list a {
+    font-size: 14px;
+    padding: 10px 10px;
+  }
+
+  .name-list .name-id {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 520px) {
+  .alphabet-bar a {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .letter-heading {
+    font-size: 17px;
+  }
+
+  .name-list a {
+    padding: 9px 8px;
     font-size: 13px;
   }
 }

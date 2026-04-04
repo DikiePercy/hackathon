@@ -1,14 +1,16 @@
 import json
 from collections import defaultdict
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from database import get_db, PersonCard, User
-from auth import require_admin
+from database import get_db, PersonCard, User, Document, DocumentChunk
+from auth import get_current_user, require_admin
+from rag_engine import add_documents_to_vector_db
 
 router = APIRouter()
 
@@ -28,6 +30,7 @@ class PersonCardCreate(BaseModel):
     rehabilitation_date: Optional[date] = None
     description: Optional[str] = ""
     source: Optional[str] = None
+    photo_url: Optional[str] = None
     status: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
@@ -49,6 +52,7 @@ class PersonCardResponse(BaseModel):
     rehabilitation_date: Optional[date]
     description: str
     source: Optional[str]
+    photo_url: Optional[str]
     status: Optional[str]
     lat: Optional[float]
     lon: Optional[float]
@@ -85,6 +89,188 @@ def _normalize_card_payload(card_data: PersonCardCreate) -> dict:
     return payload
 
 
+def _import_seed_rows(items: List[SeedPersonCard], db: Session) -> dict:
+    created = 0
+    skipped_duplicates = 0
+    seen_keys = set()
+
+    for item in items:
+        key = ((item.full_name or "").strip().lower(), item.birth_year or 1900)
+        if key in seen_keys:
+            skipped_duplicates += 1
+            continue
+
+        duplicate = db.query(PersonCard).filter(
+            PersonCard.name.ilike(item.full_name),
+            PersonCard.birth_year == (item.birth_year or 1900)
+        ).first()
+        if duplicate:
+            skipped_duplicates += 1
+            continue
+
+        db.add(PersonCard(
+            name=item.full_name,
+            birth_year=item.birth_year or 1900,
+            death_year=item.death_year,
+            nationality=item.nationality,
+            region=item.region or "Unknown",
+            district=item.district,
+            category=item.occupation,
+            charge=item.charge or "Unknown",
+            sentence=item.sentence,
+            arrest_date=item.arrest_date,
+            sentence_date=item.sentence_date,
+            rehabilitation_date=item.rehabilitation_date,
+            description=item.biography or "",
+            source=item.source,
+            status=item.status,
+            lat=None,
+            lon=None,
+        ))
+        seen_keys.add(key)
+        created += 1
+
+    return {
+        "created": created,
+        "skipped_duplicates": skipped_duplicates,
+        "total": len(items),
+    }
+
+
+def import_bundled_seed_examples_into_db(db: Session) -> dict:
+    root = Path(__file__).resolve().parents[2]
+    candidate_files = [
+        root / "asset" / "seed.json",
+        root / "asset" / "test_data" / "seed.json",
+    ]
+
+    processed_files = []
+    aggregate = {
+        "created": 0,
+        "skipped_duplicates": 0,
+        "total": 0,
+    }
+
+    for seed_path in candidate_files:
+        if not seed_path.exists():
+            continue
+
+        with seed_path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        if not isinstance(raw, list):
+            raise ValueError(f"Expected JSON array in {seed_path}")
+
+        items = [SeedPersonCard(**item) for item in raw]
+        result = _import_seed_rows(items, db)
+        aggregate["created"] += result["created"]
+        aggregate["skipped_duplicates"] += result["skipped_duplicates"]
+        aggregate["total"] += result["total"]
+        processed_files.append(str(seed_path.relative_to(root)))
+
+    return {
+        **aggregate,
+        "files": processed_files,
+    }
+
+
+def _chunk_text_for_bootstrap(text: str, max_len: int = 1200) -> List[str]:
+    blocks = [b.strip() for b in text.replace("\r\n", "\n").split("\n\n") if b.strip()]
+    chunks: List[str] = []
+
+    for block in blocks:
+        if len(block) <= max_len:
+            chunks.append(block)
+            continue
+
+        start = 0
+        while start < len(block):
+            end = min(len(block), start + max_len)
+            chunks.append(block[start:end].strip())
+            start = end
+
+    return [c for c in chunks if c]
+
+
+def _find_person_id_for_document(db: Session, filename: str, text: str) -> int | None:
+    stem = Path(filename).stem.lower()
+    rows = db.query(PersonCard.id, PersonCard.name).all()
+
+    for row in rows:
+        name = (row.name or "").lower().strip()
+        if not name:
+            continue
+        parts = [p for p in name.replace("-", " ").split() if len(p) >= 3]
+        if any(part in stem for part in parts):
+            return row.id
+
+    text_preview = text[:2000].lower()
+    for row in rows:
+        name = (row.name or "").lower().strip()
+        if name and name in text_preview:
+            return row.id
+
+    return None
+
+
+def import_bundled_documents_into_db(db: Session) -> dict:
+    root = Path(__file__).resolve().parents[2]
+    documents_dir = root / "asset" / "test_data" / "documents"
+    if not documents_dir.exists():
+        return {
+            "created": 0,
+            "skipped_duplicates": 0,
+            "total": 0,
+            "files": [],
+        }
+
+    files = sorted([p for p in documents_dir.glob("*.txt") if p.is_file()])
+    created = 0
+    skipped_duplicates = 0
+    vector_failed = 0
+    processed_files: List[str] = []
+
+    for doc_path in files:
+        rel_name = str(doc_path.relative_to(root))
+        existing = db.query(Document).filter(Document.filename == rel_name).first()
+        if existing:
+            skipped_duplicates += 1
+            continue
+
+        content = doc_path.read_text(encoding="utf-8")
+        document = Document(filename=rel_name, content=content)
+        db.add(document)
+        db.flush()
+
+        person_id = _find_person_id_for_document(db, doc_path.name, content)
+        chunks = _chunk_text_for_bootstrap(content)
+
+        if chunks:
+            try:
+                add_documents_to_vector_db(chunks, person_id=person_id, document_name=doc_path.name)
+            except Exception as exc:
+                vector_failed += 1
+                print(f"[bundled-docs] vector import skipped for {rel_name}: {exc}")
+            for idx, chunk_text in enumerate(chunks):
+                db.add(DocumentChunk(
+                    document_id=document.id,
+                    person_id=person_id,
+                    chunk_text=chunk_text,
+                    chunk_index=idx,
+                ))
+
+        created += 1
+        processed_files.append(rel_name)
+
+    return {
+        "created": created,
+        "skipped_duplicates": skipped_duplicates,
+        "vector_failed": vector_failed,
+        "total": len(files),
+        "files": processed_files,
+    }
+
+
 def _to_public_person(card: PersonCard) -> dict:
     return {
         "id": card.id,
@@ -98,7 +284,7 @@ def _to_public_person(card: PersonCard) -> dict:
         "sentence_date": card.sentence_date,
         "rehabilitation_date": card.rehabilitation_date,
         "biography": card.description or card.content or "",
-        "photo_url": "https://via.placeholder.com/250x350.png?text=Archive",
+        "photo_url": card.photo_url or "https://via.placeholder.com/250x350.png?text=Archive",
         "documents": [],
     }
 
@@ -196,7 +382,7 @@ def list_cards(
     region: Optional[str] = Query(None),
     birth_year: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     query = db.query(PersonCard)
     
@@ -217,7 +403,7 @@ def list_cards(
 def get_card(
     card_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
@@ -232,7 +418,7 @@ def get_card(
 def create_card(
     card_data: PersonCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     payload = _normalize_card_payload(card_data)
     duplicate = db.query(PersonCard).filter(
@@ -257,7 +443,7 @@ def update_card(
     card_id: int,
     card_data: PersonCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     payload = _normalize_card_payload(card_data)
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
@@ -290,7 +476,7 @@ def update_card(
 def delete_card(
     card_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
@@ -308,7 +494,7 @@ def delete_card(
 def import_cards(
     cards_data: List[PersonCardCreate],
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     created = 0
     skipped_duplicates = 0
@@ -345,61 +531,35 @@ def import_cards(
 def import_seed_cards(
     cards_data: List[SeedPersonCard],
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = _import_seed_rows(cards_data, db)
+    db.commit()
+    return result
+
+
+@router.post("/cards/import/seed/examples")
+def import_seed_examples(
+    db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    created = 0
-    skipped_duplicates = 0
-    seen_keys = set()
+    try:
+        result = import_bundled_seed_examples_into_db(db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    for item in cards_data:
-        key = (item.full_name.strip().lower(), item.birth_year)
-        if key in seen_keys:
-            skipped_duplicates += 1
-            continue
-
-        duplicate = db.query(PersonCard).filter(
-            PersonCard.name.ilike(item.full_name),
-            PersonCard.birth_year == item.birth_year
-        ).first()
-        if duplicate:
-            skipped_duplicates += 1
-            continue
-
-        db.add(PersonCard(
-            name=item.full_name,
-            birth_year=item.birth_year or 1900,
-            death_year=item.death_year,
-            nationality=item.nationality,
-            region=item.region,
-            district=item.district,
-            category=item.occupation,
-            charge=item.charge,
-            sentence=item.sentence,
-            arrest_date=item.arrest_date,
-            sentence_date=item.sentence_date,
-            rehabilitation_date=item.rehabilitation_date,
-            description=item.biography,
-            source=item.source,
-            status=item.status,
-            lat=None,
-            lon=None,
-        ))
-        seen_keys.add(key)
-        created += 1
+    if not result["files"]:
+        raise HTTPException(status_code=404, detail="No bundled seed files found")
 
     db.commit()
-    return {
-        "created": created,
-        "skipped_duplicates": skipped_duplicates,
-        "total": len(cards_data)
-    }
+    return result
 
 
 @router.post("/api/persons/import")
 async def import_persons_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     content = await file.read()
     try:
