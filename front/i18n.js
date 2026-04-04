@@ -31,7 +31,7 @@ const translations = {
         nav_admin: "Админ",
         nav_about: "Долбоор жөнүндө",
         nav_contacts: "Байланышуу",
-        site_title: "ЭС КУРЖУНУ",
+        site_title: "Тарых Архиви",
         search_placeholder: "Аты-жөнү боюнча издөө...",
         search_btn: "Издөө",
         hero_find: "Адамды табуу",

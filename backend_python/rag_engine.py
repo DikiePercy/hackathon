@@ -17,6 +17,8 @@ RAG_GEMINI_MODEL = os.getenv("RAG_GEMINI_MODEL", "gemini-1.5-flash")
 RAG_CLAUDE_MODEL = os.getenv("RAG_CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
 RAG_GEMINI_EMBEDDING_MODEL = os.getenv("RAG_GEMINI_EMBEDDING_MODEL", "models/embedding-001")
 RAG_OPENAI_EMBEDDING_MODEL = os.getenv("RAG_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+RAG_OLLAMA_MODEL = os.getenv("RAG_OLLAMA_MODEL", "llama3:8b")
 CHROMA_PATH = os.getenv("CHROMA_PATH", "/app/chroma_db")
 CHROMA_HOST = os.getenv("CHROMA_HOST", "")
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
@@ -57,12 +59,14 @@ _embeddings: Any | None = None
 
 
 def _build_embeddings() -> Any:
-    if RAG_EMBEDDING_PROVIDER == "openai":
-        if not OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY is not configured")
-        return OpenAIEmbeddings(
-            model=RAG_OPENAI_EMBEDDING_MODEL,
-            openai_api_key=OPENAI_API_KEY,
+    if RAG_EMBEDDING_PROVIDER == "ollama":
+        try:
+            from langchain_community.embeddings import OllamaEmbeddings
+        except ImportError:
+            raise RuntimeError("Ollama provider requires 'langchain-community'.")
+        return OllamaEmbeddings(
+            base_url=OLLAMA_BASE_URL,
+            model=RAG_OLLAMA_MODEL,
         )
 
     if RAG_EMBEDDING_PROVIDER == "gemini":
@@ -84,6 +88,17 @@ def _get_embeddings() -> Any:
 
 
 def _build_llm() -> Any:
+    if RAG_LLM_PROVIDER == "ollama":
+        try:
+            from langchain_community.llms import Ollama
+        except ImportError:
+            raise RuntimeError("Ollama provider requires 'langchain-community'.")
+        return Ollama(
+            base_url=OLLAMA_BASE_URL,
+            model=RAG_OLLAMA_MODEL,
+            temperature=0.3,
+        )
+
     if RAG_LLM_PROVIDER == "claude":
         if not ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY is not configured")
@@ -277,16 +292,26 @@ def generate_answer(query: str, context_docs: List[str], language: str = "") -> 
     user_prompt = f"Контекст:\n{context}\n\nВопрос: {query}"
 
     try:
-        response = llm.invoke(
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ]
-        )
+        # Check if LLM is chat model (supports messages) or simple LLM (supports string prompt)
+        llm_class_name = type(llm).__name__
+        if "Chat" in llm_class_name or hasattr(llm, "invoke") and "Anthropic" in llm_class_name:
+            # Chat models like ChatGoogleGenerativeAI, ChatAnthropic
+            response = llm.invoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt),
+                ]
+            )
+            return response.content.strip() if hasattr(response, 'content') and response.content else str(response).strip()
+        else:
+            # Simple LLM like Ollama
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            response = llm.invoke(full_prompt)
+            # Response from Ollama is usually a string
+            return response.strip() if isinstance(response, str) else str(response).strip()
     except Exception as exc:
         raise RuntimeError(f"LLM generation failed: {exc}") from exc
 
-    return response.content.strip() if response.content else ""
 
 
 def answer_with_rag(

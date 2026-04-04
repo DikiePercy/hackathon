@@ -42,12 +42,33 @@ chmod +x scripts/*.sh
 2. Админ рассматривает на `admin.html`.
 3. Админ одобряет (запись попадает в `person_cards`) или отклоняет.
 
-## RAG: Gemini или Claude
+## RAG: Ollama, Gemini или Claude
 
 В `.env` можно выбрать провайдер генерации для RAG:
 
-- `RAG_LLM_PROVIDER=gemini` (по умолчанию)
+- `RAG_LLM_PROVIDER=ollama` (локальная модель, бесплатно, приватно) ⭐ **Рекомендуется**
+- `RAG_LLM_PROVIDER=gemini` (по умолчанию, требует API ключ)
 - `RAG_LLM_PROVIDER=claude`
+
+### Ollama (локальная модель)
+
+Система теперь поддерживает Ollama для работы без внешних API:
+
+- ✅ Бесплатно (не нужен API ключ)
+- ✅ Приватность (данные не покидают сервер)
+- ✅ Работает оффлайн
+- ✅ Поддержка русского, кыргызского, турецкого языков
+
+**Настройка:**
+```bash
+# В .env установите:
+RAG_LLM_PROVIDER=ollama
+RAG_EMBEDDING_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+RAG_OLLAMA_MODEL=llama3:8b
+```
+
+Подробнее см. `OLLAMA_SETUP.md` и `OLLAMA_INTEGRATION_COMPLETE.md`
 
 Для Claude укажи:
 

@@ -53,15 +53,12 @@ services:
   python_backend:
     build: ./backend_python
     container_name: hackathon_python
-    ports:
-      - "8000:8000"
+    network_mode: "host"
     depends_on:
       db:
         condition: service_healthy
       cpp_backend:
         condition: service_healthy
-    networks:
-      - hackathon_network
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -72,15 +69,17 @@ services:
       - RAG_EMBEDDING_PROVIDER=${RAG_EMBEDDING_PROVIDER:-gemini}
       - RAG_GEMINI_EMBEDDING_MODEL=${RAG_GEMINI_EMBEDDING_MODEL:-models/embedding-001}
       - RAG_OPENAI_EMBEDDING_MODEL=${RAG_OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
-      - CPP_BACKEND_URL=http://cpp_backend:8080
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://localhost:11434}
+      - RAG_OLLAMA_MODEL=${RAG_OLLAMA_MODEL:-llama3:8b}
+      - CPP_BACKEND_URL=http://localhost:8080
       - SECRET_KEY=${SECRET_KEY:-hackathon-secret-change-me}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminSecure123}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://hackathon:hackathon@db:5432/hackathon}
-      - CHROMA_HOST=vector_db
-      - CHROMA_PORT=8000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://hackathon:hackathon@localhost:5432/hackathon}
+      - CHROMA_HOST=localhost
+      - CHROMA_PORT=8001
     volumes:
       - ${APP_DATA_DIR:-./runtime-data/app}:/data
     restart: unless-stopped
