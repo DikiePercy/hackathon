@@ -257,9 +257,13 @@ function bindCardAction(element, action) {
 function setupHeroCards() {
   const searchInput = document.getElementById("searchInput");
 
+  // bindCardAction(document.getElementById("heroFindCard"), () => {
+  //   searchInput.focus();
+  //   searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  // });
+
   bindCardAction(document.getElementById("heroFindCard"), () => {
-    searchInput.focus();
-    searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.location.href = "chat.html";
   });
 
   bindCardAction(document.getElementById("heroSuggestCard"), () => {
