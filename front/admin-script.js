@@ -55,10 +55,12 @@ async function apiFetch(path, options = {}) {
   return response;
 }
 
-async function checkSession() {
+async function checkSession({ refresh = false } = {}) {
   let me = null;
-  if (window.SiteAuth?.refreshSession) {
-    await window.SiteAuth.refreshSession();
+  if (window.SiteAuth?.getCurrentUser) {
+    if (refresh && window.SiteAuth?.refreshSession) {
+      await window.SiteAuth.refreshSession();
+    }
     me = window.SiteAuth.getCurrentUser();
   } else {
     const response = await apiFetch("/me");
@@ -434,7 +436,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("saveAiConfigBtn").addEventListener("click", saveAiRuntimeConfig);
 
   window.addEventListener("site-auth-changed", async () => {
-    const me = await checkSession();
+    const me = await checkSession({ refresh: false });
     if (me?.role === "admin") {
       await loadCards();
       await loadSuggestions();
@@ -446,7 +448,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("adminSuggestionsList").innerHTML = "";
   });
 
-  const me = await checkSession();
+  const me = await checkSession({ refresh: true });
   if (me?.role === "admin") {
     await loadCards();
     await loadSuggestions();
@@ -454,7 +456,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   window.addEventListener("site-language-changed", async () => {
-    const me2 = await checkSession();
+    const me2 = await checkSession({ refresh: false });
     if (me2?.role === "admin") {
       await loadCards();
       await loadSuggestions();

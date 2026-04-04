@@ -142,6 +142,53 @@ normalize_project_layout() {
   fi
 }
 
+ensure_cpp_dockerfile() {
+  local target="$REPO_ROOT/backend_cpp/Dockerfile"
+  if [[ -s "$target" ]]; then
+    return
+  fi
+
+  local candidates=(
+    "$REPO_ROOT/backend_cpp/dockerfile"
+    "$REPO_ROOT/backend_cpp/DockerFile"
+    "$REPO_ROOT/backend-cpp/Dockerfile"
+    "$REPO_ROOT/backend-cpp/dockerfile"
+    "$REPO_ROOT/backend-cpp/DockerFile"
+  )
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -s "$candidate" ]]; then
+      log "Recovering backend_cpp/Dockerfile from: $candidate"
+      cp "$candidate" "$target"
+      return
+    fi
+  done
+
+  if [[ -d "$REPO_ROOT/backend_cpp" && -s "$REPO_ROOT/backend_cpp/CMakeLists.txt" && -s "$REPO_ROOT/backend_cpp/main.cpp" ]]; then
+    log "backend_cpp/Dockerfile missing, generating fallback Dockerfile"
+    cat > "$target" <<'EOF'
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY . .
+
+RUN cmake . && make
+
+EXPOSE 8080
+
+CMD ["./cpp_backend"]
+EOF
+  fi
+}
+
 ensure_required_files() {
   local required_files=(
     "$REPO_ROOT/docker-compose.yml"
@@ -210,6 +257,7 @@ ensure_prerequisites
 require_cmd docker
 ensure_env_file
 normalize_project_layout
+ensure_cpp_dockerfile
 ensure_required_files
 cleanup_container_name_conflicts
 
