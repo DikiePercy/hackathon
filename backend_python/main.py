@@ -64,6 +64,26 @@ def startup_event() -> None:
     db = SessionLocal()
     try:
         auth_router.ensure_admin_user(db)
+
+        auto_seed = os.getenv("AUTO_IMPORT_BUNDLED_SEEDS", "true").strip().lower() in {"1", "true", "yes"}
+        if auto_seed:
+            try:
+                seed_result = cards.import_bundled_seed_examples_into_db(db)
+                if seed_result.get("files"):
+                    db.commit()
+            except Exception as exc:
+                db.rollback()
+                print(f"[startup] bundled seed auto-import skipped: {exc}")
+
+        auto_docs = os.getenv("AUTO_IMPORT_BUNDLED_DOCUMENTS", "true").strip().lower() in {"1", "true", "yes"}
+        if auto_docs:
+            try:
+                docs_result = cards.import_bundled_documents_into_db(db)
+                if docs_result.get("files"):
+                    db.commit()
+            except Exception as exc:
+                db.rollback()
+                print(f"[startup] bundled documents auto-import skipped: {exc}")
     finally:
         db.close()
 

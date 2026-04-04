@@ -179,6 +179,65 @@ function normalizeHeaderNav() {
       return `<a href=\"${href}\"${active}>${label}</a>`;
     })
     .join("");
+
+  nav.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      closeMobileMenu();
+    });
+  });
+}
+
+function ensureHeaderBurger() {
+  const headerInner = document.querySelector(".header-inner");
+  const siteHeader = document.querySelector(".site-header");
+  if (!headerInner || !siteHeader) return;
+
+  if (headerInner.querySelector("#headerBurgerBtn")) return;
+
+  const button = document.createElement("button");
+  button.id = "headerBurgerBtn";
+  button.className = "header-burger";
+  button.type = "button";
+  button.setAttribute("aria-label", "Open menu");
+  button.setAttribute("aria-expanded", "false");
+  button.innerHTML = "&#9776;";
+
+  button.addEventListener("click", () => {
+    const isOpen = siteHeader.classList.toggle("menu-open");
+    button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    button.innerHTML = isOpen ? "&times;" : "&#9776;";
+  });
+
+  headerInner.appendChild(button);
+}
+
+function ensureHeaderMenuOverlay() {
+  if (document.querySelector(".header-menu-overlay")) return;
+  const overlay = document.createElement("div");
+  overlay.className = "header-menu-overlay";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.addEventListener("click", () => {
+    closeMobileMenu();
+  });
+  document.body.appendChild(overlay);
+}
+
+function closeMobileMenu() {
+  const siteHeader = document.querySelector(".site-header");
+  const burger = document.getElementById("headerBurgerBtn");
+  if (siteHeader) {
+    siteHeader.classList.remove("menu-open");
+  }
+  if (burger) {
+    burger.setAttribute("aria-expanded", "false");
+    burger.innerHTML = "&#9776;";
+  }
+}
+
+function handleHeaderResize() {
+  if (window.innerWidth > 700) {
+    closeMobileMenu();
+  }
 }
 
 function ensureHeaderSearchBar() {
@@ -257,6 +316,7 @@ function setupGlobalAuthEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeGlobalAuthModal();
+      closeMobileMenu();
     }
   });
 }
@@ -310,15 +370,21 @@ window.SiteAuth = {
 
 document.addEventListener("DOMContentLoaded", async () => {
   normalizeHeaderNav();
+  ensureHeaderBurger();
+  ensureHeaderMenuOverlay();
   ensureHeaderSearchBar();
   ensureHeaderAuthControls();
   ensureGlobalAuthModal();
   setupGlobalAuthEvents();
   setupGlobalSearch();
+  handleHeaderResize();
+  window.addEventListener("resize", handleHeaderResize);
   await refreshSiteSession();
 
   window.addEventListener("site-language-changed", () => {
     normalizeHeaderNav();
+    ensureHeaderBurger();
+    ensureHeaderMenuOverlay();
     ensureHeaderSearchBar();
     ensureHeaderAuthControls();
     if (!siteCurrentUser) {

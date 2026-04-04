@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db, PersonCard, User
 from auth import get_current_user, require_admin
+from rag_engine import add_documents_to_vector_db
 
 router = APIRouter()
 
@@ -133,6 +134,134 @@ def _import_seed_rows(items: List[SeedPersonCard], db: Session) -> dict:
         "created": created,
         "skipped_duplicates": skipped_duplicates,
         "total": len(items),
+    }
+
+
+def import_bundled_seed_examples_into_db(db: Session) -> dict:
+    root = Path(__file__).resolve().parents[2]
+    candidate_files = [
+        root / "asset" / "seed.json",
+        root / "asset" / "test_data" / "seed.json",
+    ]
+
+    processed_files = []
+    aggregate = {
+        "created": 0,
+        "skipped_duplicates": 0,
+        "total": 0,
+    }
+
+    for seed_path in candidate_files:
+        if not seed_path.exists():
+            continue
+
+        with seed_path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        if not isinstance(raw, list):
+            raise ValueError(f"Expected JSON array in {seed_path}")
+
+        items = [SeedPersonCard(**item) for item in raw]
+        result = _import_seed_rows(items, db)
+        aggregate["created"] += result["created"]
+        aggregate["skipped_duplicates"] += result["skipped_duplicates"]
+        aggregate["total"] += result["total"]
+        processed_files.append(str(seed_path.relative_to(root)))
+
+    return {
+        **aggregate,
+        "files": processed_files,
+    }
+
+
+def _chunk_text_for_bootstrap(text: str, max_len: int = 1200) -> List[str]:
+    blocks = [b.strip() for b in text.replace("\r\n", "\n").split("\n\n") if b.strip()]
+    chunks: List[str] = []
+
+    for block in blocks:
+        if len(block) <= max_len:
+            chunks.append(block)
+            continue
+
+        start = 0
+        while start < len(block):
+            end = min(len(block), start + max_len)
+            chunks.append(block[start:end].strip())
+            start = end
+
+    return [c for c in chunks if c]
+
+
+def _find_person_id_for_document(db: Session, filename: str, text: str) -> int | None:
+    stem = Path(filename).stem.lower()
+    rows = db.query(PersonCard.id, PersonCard.name).all()
+
+    for row in rows:
+        name = (row.name or "").lower().strip()
+        if not name:
+            continue
+        parts = [p for p in name.replace("-", " ").split() if len(p) >= 3]
+        if any(part in stem for part in parts):
+            return row.id
+
+    text_preview = text[:2000].lower()
+    for row in rows:
+        name = (row.name or "").lower().strip()
+        if name and name in text_preview:
+            return row.id
+
+    return None
+
+
+def import_bundled_documents_into_db(db: Session) -> dict:
+    root = Path(__file__).resolve().parents[2]
+    documents_dir = root / "asset" / "test_data" / "documents"
+    if not documents_dir.exists():
+        return {
+            "created": 0,
+            "skipped_duplicates": 0,
+            "total": 0,
+            "files": [],
+        }
+
+    files = sorted([p for p in documents_dir.glob("*.txt") if p.is_file()])
+    created = 0
+    skipped_duplicates = 0
+    processed_files: List[str] = []
+
+    for doc_path in files:
+        rel_name = str(doc_path.relative_to(root))
+        existing = db.query(Document).filter(Document.filename == rel_name).first()
+        if existing:
+            skipped_duplicates += 1
+            continue
+
+        content = doc_path.read_text(encoding="utf-8")
+        document = Document(filename=rel_name, content=content)
+        db.add(document)
+        db.flush()
+
+        person_id = _find_person_id_for_document(db, doc_path.name, content)
+        chunks = _chunk_text_for_bootstrap(content)
+
+        if chunks:
+            add_documents_to_vector_db(chunks, person_id=person_id, document_name=doc_path.name)
+            for idx, chunk_text in enumerate(chunks):
+                db.add(DocumentChunk(
+                    document_id=document.id,
+                    person_id=person_id,
+                    chunk_text=chunk_text,
+                    chunk_index=idx,
+                ))
+
+        created += 1
+        processed_files.append(rel_name)
+
+    return {
+        "created": created,
+        "skipped_duplicates": skipped_duplicates,
+        "total": len(files),
+        "files": processed_files,
     }
 
 
@@ -408,44 +537,16 @@ def import_seed_examples(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    root = Path(__file__).resolve().parents[2]
-    candidate_files = [
-        root / "asset" / "seed.json",
-        root / "asset" / "test_data" / "seed.json",
-    ]
+    try:
+        result = import_bundled_seed_examples_into_db(db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    processed_files = []
-    aggregate = {
-        "created": 0,
-        "skipped_duplicates": 0,
-        "total": 0,
-    }
-
-    for seed_path in candidate_files:
-        if not seed_path.exists():
-            continue
-
-        with seed_path.open("r", encoding="utf-8") as f:
-            raw = json.load(f)
-
-        if not isinstance(raw, list):
-            raise HTTPException(status_code=400, detail=f"Expected JSON array in {seed_path}")
-
-        items = [SeedPersonCard(**item) for item in raw]
-        result = _import_seed_rows(items, db)
-        aggregate["created"] += result["created"]
-        aggregate["skipped_duplicates"] += result["skipped_duplicates"]
-        aggregate["total"] += result["total"]
-        processed_files.append(str(seed_path.relative_to(root)))
-
-    if not processed_files:
+    if not result["files"]:
         raise HTTPException(status_code=404, detail="No bundled seed files found")
 
     db.commit()
-    return {
-        **aggregate,
-        "files": processed_files,
-    }
+    return result
 
 
 @router.post("/api/persons/import")

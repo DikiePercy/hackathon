@@ -118,7 +118,7 @@ RAG_LLM_PROVIDER=gemini
 RAG_GEMINI_MODEL=gemini-1.5-flash
 RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620
 RAG_EMBEDDING_PROVIDER=gemini
-RAG_GEMINI_EMBEDDING_MODEL=models/embedding-001
+RAG_GEMINI_EMBEDDING_MODEL=models/text-embedding-004
 RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large
 CORS_ALLOW_ORIGINS=http://localhost:8501,http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173
 DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
@@ -126,6 +126,18 @@ DB_DATA_DIR=${REPO_ROOT}/runtime-data/postgres
 CHROMA_DATA_DIR=${REPO_ROOT}/runtime-data/chroma
 APP_DATA_DIR=${REPO_ROOT}/runtime-data/app
 EOF
+}
+
+migrate_legacy_env_values() {
+  local env_file="$REPO_ROOT/.env"
+  if [[ ! -f "$env_file" ]]; then
+    return
+  fi
+
+  if grep -Eq '^RAG_GEMINI_EMBEDDING_MODEL=(models/)?embedding-001$' "$env_file"; then
+    log "Updating legacy RAG_GEMINI_EMBEDDING_MODEL in .env"
+    sed -i 's|^RAG_GEMINI_EMBEDDING_MODEL=.*$|RAG_GEMINI_EMBEDDING_MODEL=models/text-embedding-004|' "$env_file"
+  fi
 }
 
 normalize_project_layout() {
@@ -142,12 +154,30 @@ normalize_project_layout() {
   fi
 }
 
-ensure_cpp_dockerfile() {
-  local target="$REPO_ROOT/backend_cpp/Dockerfile"
+recover_file_from_candidates() {
+  local target="$1"
+  local label="$2"
+  shift 2
+  local candidates=("$@")
+
   if [[ -s "$target" ]]; then
-    return
+    return 0
   fi
 
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -s "$candidate" ]]; then
+      log "Recovering ${label} from: $candidate"
+      cp "$candidate" "$target"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+ensure_cpp_dockerfile() {
+  local target="$REPO_ROOT/backend_cpp/Dockerfile"
   local candidates=(
     "$REPO_ROOT/backend_cpp/dockerfile"
     "$REPO_ROOT/backend_cpp/DockerFile"
@@ -156,14 +186,9 @@ ensure_cpp_dockerfile() {
     "$REPO_ROOT/backend-cpp/DockerFile"
   )
 
-  local candidate
-  for candidate in "${candidates[@]}"; do
-    if [[ -s "$candidate" ]]; then
-      log "Recovering backend_cpp/Dockerfile from: $candidate"
-      cp "$candidate" "$target"
-      return
-    fi
-  done
+  if recover_file_from_candidates "$target" "backend_cpp/Dockerfile" "${candidates[@]}"; then
+    return
+  fi
 
   if [[ -d "$REPO_ROOT/backend_cpp" && -s "$REPO_ROOT/backend_cpp/CMakeLists.txt" && -s "$REPO_ROOT/backend_cpp/main.cpp" ]]; then
     log "backend_cpp/Dockerfile missing, generating fallback Dockerfile"
@@ -185,6 +210,45 @@ RUN cmake . && make
 EXPOSE 8080
 
 CMD ["./cpp_backend"]
+EOF
+  fi
+}
+
+ensure_backend_python_dockerfile() {
+  local target="$REPO_ROOT/backend_python/Dockerfile"
+  local candidates=(
+    "$REPO_ROOT/backend_python/dockerfile"
+    "$REPO_ROOT/backend_python/DockerFile"
+    "$REPO_ROOT/backend-python/Dockerfile"
+    "$REPO_ROOT/backend-python/dockerfile"
+    "$REPO_ROOT/backend-python/DockerFile"
+  )
+
+  if recover_file_from_candidates "$target" "backend_python/Dockerfile" "${candidates[@]}"; then
+    return
+  fi
+
+  if [[ -d "$REPO_ROOT/backend_python" && -s "$REPO_ROOT/backend_python/requirements.txt" && -s "$REPO_ROOT/backend_python/main.py" ]]; then
+    log "backend_python/Dockerfile missing, generating fallback Dockerfile"
+    cat > "$target" <<'EOF'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 EOF
   fi
 }
@@ -256,8 +320,10 @@ compose_cmd() {
 ensure_prerequisites
 require_cmd docker
 ensure_env_file
+migrate_legacy_env_values
 normalize_project_layout
 ensure_cpp_dockerfile
+ensure_backend_python_dockerfile
 ensure_required_files
 cleanup_container_name_conflicts
 

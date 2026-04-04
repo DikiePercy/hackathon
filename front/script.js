@@ -1,11 +1,21 @@
-const META_LABELS = {
-  nationality: "Национальность",
-  occupation: "Профессия / должность",
-  arrest_date: "Дата ареста",
-  sentence: "Приговор",
-  sentence_date: "Дата приговора",
-  rehabilitation_date: "Дата реабилитации"
-};
+let currentPersonData = null;
+
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
+function getMetaLabels() {
+  return {
+    birth_year: tr("ph_birth_year", "Год рождения"),
+    death_year: tr("ph_death_year", "Год смерти"),
+    nationality: tr("ph_nationality", "Национальность"),
+    occupation: tr("ph_occupation", "Профессия / должность"),
+    arrest_date: tr("ph_arrest_date", "Дата ареста"),
+    sentence: tr("ph_sentence", "Приговор"),
+    sentence_date: tr("ph_sentence_date", "Дата приговора"),
+    rehabilitation_date: tr("ph_rehabilitation_date", "Дата реабилитации")
+  };
+}
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -17,6 +27,18 @@ function resolveApiBase() {
 }
 
 const API_BASE = resolveApiBase();
+
+function resolveMediaUrl(url) {
+  const value = (url || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) {
+    return value;
+  }
+  if (value.startsWith("/") && API_BASE) {
+    return `${API_BASE}${value}`;
+  }
+  return value;
+}
 
 function setPortraitVisible(visible) {
   const photoWrap = document.querySelector(".profile-photo");
@@ -39,6 +61,7 @@ function formatDate(dateStr) {
 }
 
 function renderPerson(data) {
+  currentPersonData = data;
   document.getElementById("personName").textContent = data.full_name;
   const years = [data.birth_year, data.death_year].filter(Boolean).join(" - ");
   document.getElementById("personYears").textContent = years ? `(${years})` : "";
@@ -46,7 +69,7 @@ function renderPerson(data) {
   const photoEl = document.getElementById("personPhoto");
   if (data.photo_url) {
     setPortraitVisible(true);
-    photoEl.src = data.photo_url;
+    photoEl.src = resolveMediaUrl(data.photo_url);
     photoEl.onerror = () => {
       photoEl.onerror = null;
       setPortraitVisible(false);
@@ -70,10 +93,12 @@ function renderPerson(data) {
     tbody.appendChild(tr);
   };
 
-  addRow("Год рождения", data.birth_year);
-  addRow("Год смерти", data.death_year);
+  const labels = getMetaLabels();
+  addRow(labels.birth_year, data.birth_year);
+  addRow(labels.death_year, data.death_year);
 
-  for (const [key, label] of Object.entries(META_LABELS)) {
+  for (const [key, label] of Object.entries(labels)) {
+    if (key === "birth_year" || key === "death_year") continue;
     let value = data[key];
     if (key.includes("date")) {
       value = formatDate(value);
@@ -88,13 +113,13 @@ function renderPerson(data) {
       const div = document.createElement("div");
       div.className = "doc-thumb";
       const img = document.createElement("img");
-      img.src = url;
+      img.src = resolveMediaUrl(url);
       img.alt = `Документ ${i + 1}`;
       div.appendChild(img);
       grid.appendChild(div);
     });
   } else {
-    grid.textContent = "Документы пока не добавлены";
+    grid.textContent = tr("profile_no_documents", "Документы пока не добавлены");
   }
 
   const bioDiv = document.getElementById("biographyText");
@@ -109,12 +134,13 @@ function renderPerson(data) {
       bioDiv.appendChild(p);
     });
   } else {
-    bioDiv.textContent = "Биография пока не добавлена";
+    bioDiv.textContent = tr("profile_no_biography", "Биография пока не добавлена");
   }
 }
 
 function showNoDataState() {
-  document.getElementById("personName").textContent = "Пока нет данных";
+  currentPersonData = null;
+  document.getElementById("personName").textContent = tr("profile_no_data_title", "Пока нет данных");
   document.getElementById("personYears").textContent = "";
 
   setPortraitVisible(false);
@@ -124,11 +150,11 @@ function showNoDataState() {
 
   const grid = document.getElementById("documentsGrid");
   grid.innerHTML = "";
-  grid.textContent = "Документы пока не добавлены";
+  grid.textContent = tr("profile_no_documents", "Документы пока не добавлены");
 
   const bioDiv = document.getElementById("biographyText");
   bioDiv.innerHTML = "";
-  bioDiv.textContent = "В базе пока нет данных.";
+  bioDiv.textContent = tr("profile_no_data_body", "В базе пока нет данных.");
 }
 
 async function loadStats() {
@@ -261,5 +287,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setupHeroCards();
   loadStats();
+  document.getElementById("personName").textContent = tr("profile_loading", "Загрузка...");
   resolveInitialPersonId().then((personId) => loadPerson(personId));
+
+  window.addEventListener("site-language-changed", () => {
+    if (currentPersonData) {
+      renderPerson(currentPersonData);
+    } else {
+      showNoDataState();
+    }
+  });
 });
