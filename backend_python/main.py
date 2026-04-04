@@ -1,15 +1,19 @@
 import os
 from collections import defaultdict
+from pathlib import Path
 
 from fastapi import FastAPI, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 import httpx
 
-from database import init_db, SessionLocal, PersonCard, Document, DocumentChunk, get_db
-from routers import auth_router, cards, rag
-from rag_engine import add_documents_to_vector_db
+from database import init_db, SessionLocal, PersonCard, Document, DocumentChunk, get_db, User
+from auth import require_admin
+from routers import auth_router, cards, rag, suggestions
+from rag_engine import add_documents_to_vector_db, get_runtime_config, update_runtime_config
 
 
 def _parse_cors_origins() -> list[str]:
@@ -21,6 +25,7 @@ def _parse_cors_origins() -> list[str]:
 
 
 CPP_BACKEND_URL = os.getenv("CPP_BACKEND_URL", "http://cpp_backend:8080")
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", "/data/uploads"))
 
 app = FastAPI(title="Golos iz Arkhiva API", version="3.0.0")
 
@@ -35,16 +40,90 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(cards.router)
 app.include_router(rag.router)
+app.include_router(suggestions.router)
+
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
+
+class AIRuntimeConfigPatch(BaseModel):
+    gemini_api_key: str | None = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    groq_api_key: str | None = None
+    rag_llm_provider: str | None = None
+    rag_embedding_provider: str | None = None
+    rag_gemini_model: str | None = None
+    rag_openai_model: str | None = None
+    rag_claude_model: str | None = None
+    rag_groq_model: str | None = None
+    rag_gemini_embedding_model: str | None = None
+    rag_openai_embedding_model: str | None = None
 
 
 @app.on_event("startup")
 def startup_event() -> None:
     init_db()
+    db = SessionLocal()
+    try:
+        auth_router.ensure_admin_user(db)
+
+        auto_seed = os.getenv("AUTO_IMPORT_BUNDLED_SEEDS", "true").strip().lower() in {"1", "true", "yes"}
+        if auto_seed:
+            try:
+                seed_result = cards.import_bundled_seed_examples_into_db(db)
+                if seed_result.get("files"):
+                    db.commit()
+            except Exception as exc:
+                db.rollback()
+                print(f"[startup] bundled seed auto-import skipped: {exc}")
+
+        auto_docs = os.getenv("AUTO_IMPORT_BUNDLED_DOCUMENTS", "true").strip().lower() in {"1", "true", "yes"}
+        if auto_docs:
+            try:
+                docs_result = cards.import_bundled_documents_into_db(db)
+                if docs_result.get("files"):
+                    db.commit()
+            except Exception as exc:
+                db.rollback()
+                print(f"[startup] bundled documents auto-import skipped: {exc}")
+    finally:
+        db.close()
 
 
 @app.get("/")
 def root() -> dict:
     return {"service": "backend_python", "status": "ok"}
+
+
+@app.get("/admin/ai/runtime-config")
+def admin_get_ai_runtime_config(current_user: User = Depends(require_admin)) -> dict:
+    return {
+        "config": get_runtime_config(mask_secrets=True),
+        "allowed_llm_providers": ["gemini", "openai", "claude", "groq", "ollama"],
+        "allowed_embedding_providers": ["gemini", "openai", "ollama"],
+    }
+
+
+@app.post("/admin/ai/runtime-config")
+def admin_update_ai_runtime_config(
+    payload: AIRuntimeConfigPatch,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    updates = payload.model_dump(exclude_unset=True)
+
+    if "rag_llm_provider" in updates:
+        updates["rag_llm_provider"] = (updates["rag_llm_provider"] or "").strip().lower()
+        if updates["rag_llm_provider"] not in {"gemini", "openai", "claude", "groq", "ollama"}:
+            raise HTTPException(status_code=400, detail="rag_llm_provider must be one of: gemini, openai, claude, groq, ollama")
+
+    if "rag_embedding_provider" in updates:
+        updates["rag_embedding_provider"] = (updates["rag_embedding_provider"] or "").strip().lower()
+        if updates["rag_embedding_provider"] not in {"gemini", "openai", "ollama"}:
+            raise HTTPException(status_code=400, detail="rag_embedding_provider must be one of: gemini, openai, ollama")
+
+    effective = update_runtime_config(updates)
+    return {"message": "AI runtime config updated", "config": effective}
 
 
 @app.get("/health")
@@ -111,6 +190,7 @@ async def upload_card_with_document(
     lat: float | None = Form(None),
     lon: float | None = Form(None),
     file: UploadFile = File(...),
+    current_user: User = Depends(require_admin),
 ) -> dict:
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")

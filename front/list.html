@@ -25,8 +25,6 @@
       <nav class="header-nav">
         <a href="index.html">Главная</a>
         <a href="list.html" class="nav-active">База данных</a>
-        <a href="chat.html">Чат AI</a>
-        <a href="admin.html">Админ</a>
         <a href="about.html">О проекте</a>
         <a href="contacts.html">Контакты</a>
       </nav>
@@ -36,8 +34,8 @@
   <!-- PAGE TITLE -->
   <section class="page-title-section">
     <div class="page-title-inner">
-      <h1>Алфавитный список жертв репрессий</h1>
-      <p class="page-subtitle">Реестр лиц, пострадавших от политических репрессий. Выберите букву или воспользуйтесь поиском.</p>
+      <h1 data-i18n="list_page_title">Алфавитный список жертв репрессий</h1>
+      <p class="page-subtitle" data-i18n="list_page_subtitle">Реестр лиц, пострадавших от политических репрессий. Выберите букву или воспользуйтесь поиском.</p>
     </div>
   </section>
 
@@ -56,31 +54,31 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-box">
-        <h4>Фильтры</h4>
-        <label class="filter-label" for="filterRegion">Регион</label>
+        <h4 data-i18n="list_filters">Фильтры</h4>
+        <label class="filter-label" for="filterRegion" data-i18n="filter_region">Регион</label>
         <select id="filterRegion" class="filter-select">
-          <option value="">Все регионы</option>
+          <option value="" data-i18n="filter_all_regions">Все регионы</option>
         </select>
-        <label class="filter-label" for="filterYear">Год рождения</label>
+        <label class="filter-label" for="filterYear" data-i18n="filter_year">Год репрессии</label>
         <select id="filterYear" class="filter-select">
-          <option value="">Все годы</option>
+          <option value="" data-i18n="filter_all_years">Все годы</option>
         </select>
-        <button class="filter-apply-btn" type="button">Применить</button>
+        <button class="filter-apply-btn" type="button" data-i18n="filter_apply">Применить</button>
       </div>
       
       <div class="sidebar-box">
-        <h4>Ресурсы</h4>
+        <h4 data-i18n="resources_title">Ресурсы</h4>
         <ul>
-          <li><a href="#">Архивные фонды</a></li>
-          <li><a href="#">Публикации</a></li>
-          <li><a href="#">Законодательство</a></li>
-          <li><a href="#">Методические материалы</a></li>
+          <li><a href="#" data-i18n="resources_archives">Архивные фонды</a></li>
+          <li><a href="#" data-i18n="resources_publications">Публикации</a></li>
+          <li><a href="#" data-i18n="resources_laws">Законодательство</a></li>
+          <li><a href="#" data-i18n="resources_methods">Методические материалы</a></li>
         </ul>
       </div>
       <div class="sidebar-box">
-        <h4>Статистика</h4>
-        <p class="sidebar-stat">Записей в базе: <strong>12 487</strong></p>
-        <p class="sidebar-stat">Документов: <strong>3 291</strong></p>
+        <h4 data-i18n="stats_title">Статистика</h4>
+        <p class="sidebar-stat">Записей в базе: <strong id="statsPersons">-</strong></p>
+        <p class="sidebar-stat">Документов: <strong id="statsDocuments">-</strong></p>
       </div>
     </aside>
   </div>
@@ -90,6 +88,8 @@
     <p>&copy; 2024 Архив Памяти. Открытая энциклопедия жертв политических репрессий.</p>
   </footer>
 
+  <script src="i18n.js"></script>
+  <script src="header-auth.js"></script>
   <script src="list-script.js"></script>
 </body>
 </html>

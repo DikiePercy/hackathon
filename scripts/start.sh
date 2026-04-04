@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 APT_UPDATED=0
+ENV_CREATED=0
 
 log() {
   printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -114,18 +115,163 @@ SECRET_KEY=${secret_key}
 GEMINI_API_KEY=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
-RAG_LLM_PROVIDER=gemini
+GROQ_API_KEY=
+RAG_LLM_PROVIDER=ollama
 RAG_GEMINI_MODEL=gemini-1.5-flash
+RAG_OPENAI_MODEL=gpt-4o-mini
 RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620
-RAG_EMBEDDING_PROVIDER=gemini
-RAG_GEMINI_EMBEDDING_MODEL=models/embedding-001
+RAG_GROQ_MODEL=groq/compound
+RAG_EMBEDDING_PROVIDER=ollama
+RAG_GEMINI_EMBEDDING_MODEL=models/text-embedding-004
 RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+RAG_OLLAMA_MODEL=llama3:8b
+AUTO_IMPORT_BUNDLED_SEEDS=true
+AUTO_IMPORT_BUNDLED_DOCUMENTS=true
 CORS_ALLOW_ORIGINS=http://localhost:8501,http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173
 DATABASE_URL=postgresql://hackathon:hackathon@db:5432/hackathon
 DB_DATA_DIR=${REPO_ROOT}/runtime-data/postgres
 CHROMA_DATA_DIR=${REPO_ROOT}/runtime-data/chroma
 APP_DATA_DIR=${REPO_ROOT}/runtime-data/app
 EOF
+
+  ENV_CREATED=1
+}
+
+migrate_legacy_env_values() {
+  local env_file="$REPO_ROOT/.env"
+  if [[ ! -f "$env_file" ]]; then
+    return
+  fi
+
+  if grep -Eq '^RAG_GEMINI_EMBEDDING_MODEL=(models/)?embedding-001$' "$env_file"; then
+    log "Updating legacy RAG_GEMINI_EMBEDDING_MODEL in .env"
+    sed -i 's|^RAG_GEMINI_EMBEDDING_MODEL=.*$|RAG_GEMINI_EMBEDDING_MODEL=models/text-embedding-004|' "$env_file"
+  fi
+}
+
+normalize_project_layout() {
+  # Common zip variant: backend-cpp instead of backend_cpp
+  if [[ ! -e "$REPO_ROOT/backend_cpp" && -d "$REPO_ROOT/backend-cpp" ]]; then
+    log "Detected backend-cpp folder, creating compatibility symlink backend_cpp -> backend-cpp"
+    ln -s "backend-cpp" "$REPO_ROOT/backend_cpp"
+  fi
+
+  # Optional compatibility for html frontend naming.
+  if [[ ! -e "$REPO_ROOT/front" && -d "$REPO_ROOT/frontend_html" ]]; then
+    log "Detected frontend_html folder, creating compatibility symlink front -> frontend_html"
+    ln -s "frontend_html" "$REPO_ROOT/front"
+  fi
+}
+
+recover_file_from_candidates() {
+  local target="$1"
+  local label="$2"
+  shift 2
+  local candidates=("$@")
+
+  if [[ -s "$target" ]]; then
+    return 0
+  fi
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -s "$candidate" ]]; then
+      log "Recovering ${label} from: $candidate"
+      cp "$candidate" "$target"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+ensure_cpp_dockerfile() {
+  local target="$REPO_ROOT/backend_cpp/Dockerfile"
+  local candidates=(
+    "$REPO_ROOT/backend_cpp/dockerfile"
+    "$REPO_ROOT/backend_cpp/DockerFile"
+    "$REPO_ROOT/backend-cpp/Dockerfile"
+    "$REPO_ROOT/backend-cpp/dockerfile"
+    "$REPO_ROOT/backend-cpp/DockerFile"
+  )
+
+  if recover_file_from_candidates "$target" "backend_cpp/Dockerfile" "${candidates[@]}"; then
+    return
+  fi
+
+  if [[ -d "$REPO_ROOT/backend_cpp" ]]; then
+    log "backend_cpp/Dockerfile missing, generating fallback Dockerfile"
+    cat > "$target" <<'EOF'
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY . .
+
+RUN if [ -f CMakeLists.txt ]; then \
+      cmake . && make; \
+    elif [ -f main.cpp ]; then \
+      g++ -O2 -std=c++17 main.cpp -o cpp_backend; \
+    else \
+      echo "No C++ build files found (expected CMakeLists.txt or main.cpp)" && exit 1; \
+    fi
+
+EXPOSE 8080
+
+CMD ["./cpp_backend"]
+EOF
+  fi
+}
+
+ensure_backend_python_dockerfile() {
+  local target="$REPO_ROOT/backend_python/Dockerfile"
+  local candidates=(
+    "$REPO_ROOT/backend_python/dockerfile"
+    "$REPO_ROOT/backend_python/DockerFile"
+    "$REPO_ROOT/backend-python/Dockerfile"
+    "$REPO_ROOT/backend-python/dockerfile"
+    "$REPO_ROOT/backend-python/DockerFile"
+  )
+
+  if recover_file_from_candidates "$target" "backend_python/Dockerfile" "${candidates[@]}"; then
+    return
+  fi
+
+  if [[ -d "$REPO_ROOT/backend_python" ]]; then
+    log "backend_python/Dockerfile missing, generating fallback Dockerfile"
+    cat > "$target" <<'EOF'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . .
+
+RUN if [ -f requirements.txt ]; then \
+      pip install --no-cache-dir -r requirements.txt; \
+    fi
+
+RUN if [ ! -f main.py ]; then \
+      echo "main.py is missing in backend_python" && exit 1; \
+    fi
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+EOF
+  fi
 }
 
 ensure_required_files() {
@@ -152,6 +298,31 @@ ensure_required_files() {
   fi
 }
 
+cleanup_container_name_conflicts() {
+  # docker-compose.yml uses fixed container names; remove stale containers with those names.
+  local fixed_names=(
+    hackathon_db
+    hackathon_vector_db
+    hackathon_cpp
+    hackathon_python
+    hackathon_frontend
+    hackathon_web
+  )
+
+  local has_conflicts=0
+  for name in "${fixed_names[@]}"; do
+    if docker ps -a --format '{{.Names}}' | grep -Fxq "$name"; then
+      has_conflicts=1
+      log "Removing conflicting container name: $name"
+      docker rm -f "$name" >/dev/null 2>&1 || true
+    fi
+  done
+
+  if [[ "$has_conflicts" -eq 1 ]]; then
+    log "Container name conflicts cleared"
+  fi
+}
+
 compose_cmd() {
   if docker compose version >/dev/null 2>&1; then
     docker compose "$@"
@@ -167,15 +338,73 @@ compose_cmd() {
   exit 1
 }
 
+ensure_ollama_on_11434() {
+  local llm_provider="${RAG_LLM_PROVIDER:-}"
+  local embedding_provider="${RAG_EMBEDDING_PROVIDER:-}"
+  local ollama_model="${RAG_OLLAMA_MODEL:-llama3:8b}"
+
+  if [[ "$llm_provider" != "ollama" && "$embedding_provider" != "ollama" ]]; then
+    log "Ollama startup skipped (providers are not set to ollama)"
+    return
+  fi
+
+  if ! command -v ollama >/dev/null 2>&1; then
+    log "Ollama is not installed. Installing via official script"
+    curl -fsSL https://ollama.com/install.sh | sh
+  fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    as_root systemctl enable ollama >/dev/null 2>&1 || true
+    as_root systemctl restart ollama >/dev/null 2>&1 || as_root systemctl start ollama >/dev/null 2>&1 || true
+  fi
+
+  if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    log "Starting ollama serve in background"
+    pkill -f "ollama serve" >/dev/null 2>&1 || true
+    nohup ollama serve >/tmp/ollama.log 2>&1 &
+  fi
+
+  log "Waiting for Ollama API on 127.0.0.1:11434"
+  local i
+  for i in $(seq 1 30); do
+    if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+      log "Ollama API is ready"
+      break
+    fi
+    sleep 1
+  done
+
+  if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    log "Ollama API did not become ready on 127.0.0.1:11434"
+    log "Check logs: sudo journalctl -u ollama -n 120 --no-pager or tail -n 120 /tmp/ollama.log"
+    exit 1
+  fi
+
+  log "Ensuring Ollama model is available: $ollama_model"
+  ollama pull "$ollama_model" || true
+}
+
 ensure_prerequisites
 require_cmd docker
 ensure_env_file
+if [[ "$ENV_CREATED" -eq 1 ]]; then
+  log "Template .env was created at $REPO_ROOT/.env"
+  log "Edit .env values (API keys, admin credentials, paths), then rerun ./scripts/start.sh"
+  exit 0
+fi
+migrate_legacy_env_values
+normalize_project_layout
+ensure_cpp_dockerfile
+ensure_backend_python_dockerfile
 ensure_required_files
+cleanup_container_name_conflicts
 
 set -a
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.env"
 set +a
+
+ensure_ollama_on_11434
 
 DB_DIR="${DB_DATA_DIR:-$REPO_ROOT/runtime-data/postgres}"
 CHROMA_DIR="${CHROMA_DATA_DIR:-$REPO_ROOT/runtime-data/chroma}"

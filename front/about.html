@@ -23,8 +23,6 @@
       <nav class="header-nav">
         <a href="index.html">Главная</a>
         <a href="list.html">База данных</a>
-        <a href="chat.html">Чат AI</a>
-        <a href="admin.html">Админ</a>
         <a href="about.html" class="nav-active">О проекте</a>
         <a href="contacts.html">Контакты</a>
       </nav>
@@ -33,43 +31,42 @@
 
   <div class="main-wrapper">
     <main class="content">
-      <div class="about-breadcrumbs"><a href="index.html">Главная</a> / О проекте</div>
-      <a href="index.html" class="about-back-link">← Вернуться на главную</a>
+      <div class="about-breadcrumbs"><a href="index.html" data-i18n="nav_main">Главная</a> / <span data-i18n="nav_about">О проекте</span></div>
+      <a href="index.html" class="about-back-link" data-i18n="about_back">← Вернуться на главную</a>
 
-      <h1 class="about-title">О проекте: Архив Памяти</h1>
+      <h1 class="about-title" data-i18n="about_title">О проекте: Архив Памяти</h1>
 
       <div class="about-text">
-        <p class="about-dropcap">
+        <p class="about-dropcap" data-i18n="about_text_1">
           Каждое имя — это история. История человека, чья судьба была перечёркнута машиной государственного террора. 
           Десятилетия молчания превратили миллионы жизней в безымянные тени, стёртые из памяти и архивов.
         </p>
-        <p>Мы строим живой мост между поколениями — мост, по которому память о прошлом передаётся тем, кто живёт сегодня.</p>
+        <p data-i18n="about_text_2">Мы строим живой мост между поколениями — мост, по которому память о прошлом передаётся тем, кто живёт сегодня.</p>
       </div>
 
-      <h2 class="about-section-title">Партнёры</h2>
+      <h2 class="about-section-title" data-i18n="partners_title">Партнёры</h2>
       <div class="about-grid-3" id="partners-grid"></div>
 
-      <h2 class="about-section-title">Статистика</h2>
+      <h2 class="about-section-title" data-i18n="stats_title">Статистика</h2>
       <div class="about-grid-3" id="stats-grid"></div>
-
-      <h2 class="about-section-title">Регионы</h2>
-      <div class="about-grid-3" id="regions-grid"></div>
     </main>
 
     <aside class="sidebar">
       <div class="sidebar-box">
-        <h4>Ресурсы</h4>
+        <h4 data-i18n="resources_title">Ресурсы</h4>
         <ul>
-          <li><a href="#">Архивные фонды</a></li>
-          <li><a href="#">Публикации</a></li>
-          <li><a href="#">Законодательство</a></li>
-          <li><a href="#">Методические материалы</a></li>
+          <li><a href="#" data-i18n="resources_archives">Архивные фонды</a></li>
+          <li><a href="#" data-i18n="resources_publications">Публикации</a></li>
+          <li><a href="#" data-i18n="resources_laws">Законодательство</a></li>
+          <li><a href="#" data-i18n="resources_methods">Методические материалы</a></li>
         </ul>
       </div>
     
     </aside>
   </div>
 
+  <script src="i18n.js"></script>
+  <script src="header-auth.js"></script>
   <script src="about-script.js"></script>
 </body>
 </html>

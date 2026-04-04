@@ -1,4 +1,12 @@
 const CYRILLIC = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ".split("");
+const LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const DEFAULT_ALPHABET = [...CYRILLIC, ...LATIN];
+let allPeople = [];
+let activeAlphabet = [...DEFAULT_ALPHABET];
+
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
 
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
@@ -11,102 +19,70 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 
-function apiUrl(path) {
-  return API_BASE ? `${API_BASE}${path}` : path;
+function mapPerson(person) {
+  const name = person.full_name || "";
+  const region = person.region || "";
+  const district = person.district || "";
+  const occupation = person.occupation || "";
+  const charge = person.charge || "";
+  const birthYear = person.birth_year || "";
+  const deathYear = person.death_year || "";
+
+  return {
+    id: person.id,
+    name,
+    birth_year: person.birth_year,
+    death_year: person.death_year,
+    region,
+    district,
+    occupation,
+    charge,
+    search_blob: `${name} ${region} ${district} ${occupation} ${charge} ${birthYear} ${deathYear}`.toLowerCase()
+  };
 }
 
-function normalizePeople(rows) {
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.full_name,
-    birth_year: row.birth_year,
-    death_year: row.death_year,
-    occupation: row.occupation,
-    region: row.region
-  }));
+function getFirstLetter(name) {
+  const first = (name || "").trim().charAt(0).toUpperCase();
+  if (!first) return "#";
+  if (DEFAULT_ALPHABET.includes(first)) return first;
+  return "#";
 }
 
-let allPeople = [];
-
-function getFilterValues() {
-  const region = document.getElementById("filterRegion")?.value || "";
-  const year = document.getElementById("filterYear")?.value || "";
-  return { region, year };
-}
-
-function applyFilters(people) {
-  const { region, year } = getFilterValues();
-  return people.filter((p) => {
-    const byRegion = !region || (p.region || "") === region;
-    const byYear = !year || String(p.birth_year || "") === year;
-    return byRegion && byYear;
-  });
-}
-
-function fillFilterOptions(people) {
-  const regionSelect = document.getElementById("filterRegion");
-  const yearSelect = document.getElementById("filterYear");
-  if (!regionSelect || !yearSelect) return;
-
-  const regionOptions = Array.from(
-    new Set(people.map((p) => (p.region || "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, "ru"));
-
-  const yearOptions = Array.from(
-    new Set(people.map((p) => p.birth_year).filter((v) => Number.isInteger(v)))
-  ).sort((a, b) => a - b);
-
-  const currentRegion = regionSelect.value;
-  const currentYear = yearSelect.value;
-
-  regionSelect.innerHTML = '<option value="">Все регионы</option>';
-  yearSelect.innerHTML = '<option value="">Все годы</option>';
-
-  regionOptions.forEach((region) => {
-    const option = document.createElement("option");
-    option.value = region;
-    option.textContent = region;
-    regionSelect.appendChild(option);
+function computeAlphabet(people) {
+  const seen = new Set();
+  people.forEach((p) => {
+    seen.add(getFirstLetter(p.name));
   });
 
-  yearOptions.forEach((year) => {
-    const option = document.createElement("option");
-    option.value = String(year);
-    option.textContent = String(year);
-    yearSelect.appendChild(option);
-  });
+  const ordered = DEFAULT_ALPHABET.filter((letter) => seen.has(letter));
+  if (seen.has("#")) ordered.push("#");
 
-  if (currentRegion) regionSelect.value = currentRegion;
-  if (currentYear) yearSelect.value = currentYear;
+  return ordered.length ? ordered : [...DEFAULT_ALPHABET];
 }
 
-function groupByLetter(people) {
+function groupByLetter(people, alphabet) {
   const groups = {};
-  CYRILLIC.forEach((l) => {
-    groups[l] = [];
-  });
+  alphabet.forEach((l) => { groups[l] = []; });
 
   people.forEach((p) => {
-    const first = (p.name || "").charAt(0).toUpperCase();
+    const first = getFirstLetter(p.name);
     if (groups[first]) {
       groups[first].push(p);
     }
   });
 
-  CYRILLIC.forEach((l) => {
-    groups[l].sort((a, b) => (a.name || "").localeCompare(b.name || "", "ru"));
-  });
-
+  for (const l of alphabet) {
+    groups[l].sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  }
   return groups;
 }
 
-function renderAlphabetBar(groups) {
+function renderAlphabetBar(alphabet, groups) {
   const bar = document.getElementById("alphabetBar");
   bar.innerHTML = "";
-
-  CYRILLIC.forEach((letter) => {
+  alphabet.forEach((letter) => {
     const a = document.createElement("a");
-    a.href = `#letter-${letter}`;
+    a.href = "#letter-" + letter;
     a.textContent = letter;
     if (!groups[letter] || groups[letter].length === 0) {
       a.classList.add("disabled");
@@ -116,11 +92,11 @@ function renderAlphabetBar(groups) {
   });
 }
 
-function renderRegistry(groups) {
+function renderRegistry(alphabet, groups) {
   const container = document.getElementById("registryList");
   container.innerHTML = "";
 
-  CYRILLIC.forEach((letter) => {
+  alphabet.forEach((letter) => {
     const people = groups[letter] || [];
     if (!people.length) return;
 
@@ -129,7 +105,7 @@ function renderRegistry(groups) {
 
     const heading = document.createElement("h2");
     heading.className = "letter-heading";
-    heading.id = `letter-${letter}`;
+    heading.id = "letter-" + letter;
     heading.textContent = letter;
     section.appendChild(heading);
 
@@ -139,13 +115,11 @@ function renderRegistry(groups) {
     people.forEach((p) => {
       const li = document.createElement("li");
       const a = document.createElement("a");
-      a.href = `index.html?id=${p.id}`;
-      a.textContent = p.name;
+      a.href = "index.html?id=" + p.id;
 
-      const span = document.createElement("span");
-      span.className = "name-id";
-      span.textContent = ` #${p.id}`;
-      a.appendChild(span);
+      const years = [p.birth_year, p.death_year].filter(Boolean).join("-");
+      const details = [p.region, p.occupation, years].filter(Boolean).join(" | ");
+      a.innerHTML = `${p.name}<span class="name-id">#${p.id}${details ? " | " + details : ""}</span>`;
 
       li.appendChild(a);
       ul.appendChild(li);
@@ -156,80 +130,170 @@ function renderRegistry(groups) {
   });
 }
 
-async function fetchPeople(query = "") {
-  const url = query
-    ? apiUrl(`/api/persons?q=${encodeURIComponent(query)}&limit=1000`)
-    : apiUrl("/api/persons?limit=1000");
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return normalizePeople(await response.json());
+function getFilterValues() {
+  return {
+    query: (document.getElementById("searchInput").value || "").trim().toLowerCase(),
+    region: (document.getElementById("filterRegion").value || "").trim().toLowerCase(),
+    year: (document.getElementById("filterYear").value || "").trim()
+  };
 }
 
-async function loadAndRender(query = "") {
-  const registry = document.getElementById("registryList");
-  registry.innerHTML = "Загрузка...";
+function initSearchFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const q = (params.get("q") || "").trim();
+  if (!q) return;
 
-  try {
-    allPeople = await fetchPeople(query);
-    fillFilterOptions(allPeople);
+  const input = document.getElementById("searchInput");
+  if (input) {
+    input.value = q;
+  }
+}
 
-    const people = applyFilters(allPeople);
-    const groups = groupByLetter(people);
-    renderAlphabetBar(groups);
-    renderRegistry(groups);
+function applyFilters() {
+  const { query, region, year } = getFilterValues();
 
-    if (!people.length) {
-      registry.innerHTML = "Данные не найдены";
+  const filtered = allPeople.filter((p) => {
+    const byQuery = !query || p.search_blob.includes(query);
+    const byRegion = !region || (p.region || "").toLowerCase() === region;
+    const byYear = !year || String(p.birth_year || "") === year || String(p.death_year || "") === year;
+    return byQuery && byRegion && byYear;
+  });
+
+  const groups = groupByLetter(filtered, activeAlphabet);
+  renderAlphabetBar(activeAlphabet, groups);
+  renderRegistry(activeAlphabet, groups);
+}
+
+function fillRegionFilter() {
+  const select = document.getElementById("filterRegion");
+  const existing = new Set();
+
+  allPeople.forEach((p) => {
+    if (p.region) {
+      existing.add(p.region);
     }
-  } catch (err) {
-    registry.innerHTML = `Ошибка загрузки: ${err.message}`;
+  });
+
+  const values = Array.from(existing)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ru"));
+  const selected = (select.value || "").trim();
+  select.innerHTML = `<option value=''>${tr("filter_all_regions", "All regions")}</option>`;
+  values.forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region;
+    option.textContent = region;
+    select.appendChild(option);
+  });
+  if (selected && values.includes(selected)) {
+    select.value = selected;
   }
 }
 
-function renderWithCurrentFilters() {
-  const registry = document.getElementById("registryList");
-  const people = applyFilters(allPeople);
-  const groups = groupByLetter(people);
-  renderAlphabetBar(groups);
-  renderRegistry(groups);
+function fillYearFilter() {
+  const select = document.getElementById("filterYear");
+  const existing = new Set();
 
-  if (!people.length) {
-    registry.innerHTML = "Данные не найдены";
+  allPeople.forEach((p) => {
+    if (p.birth_year) existing.add(String(p.birth_year));
+    if (p.death_year) existing.add(String(p.death_year));
+  });
+
+  const values = Array.from(existing).sort((a, b) => Number(a) - Number(b));
+  const selected = (select.value || "").trim();
+  select.innerHTML = `<option value=''>${tr("filter_all_years", "All years")}</option>`;
+  values.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
+  });
+  if (selected && values.includes(selected)) {
+    select.value = selected;
   }
 }
 
 function setupSearch() {
   const input = document.getElementById("searchInput");
   const btn = document.getElementById("searchBtn");
+  const applyBtn = document.querySelector(".filter-apply-btn");
 
-  const doSearch = () => {
-    const query = input.value.trim();
-    loadAndRender(query);
-  };
+  btn.addEventListener("click", applyFilters);
+  applyBtn.addEventListener("click", applyFilters);
 
-  btn.addEventListener("click", doSearch);
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doSearch();
+    if (e.key === "Enter") {
+      applyFilters();
+    }
   });
 }
 
-function setupFilters() {
-  const applyBtn = document.querySelector(".filter-apply-btn");
-  const regionSelect = document.getElementById("filterRegion");
-  const yearSelect = document.getElementById("filterYear");
+async function loadPeople() {
+  const pageSize = 500;
+  let offset = 0;
+  const collected = [];
 
-  if (!applyBtn || !regionSelect || !yearSelect) return;
+  while (true) {
+    const response = await fetch(`${API_BASE}/api/persons?limit=${pageSize}&offset=${offset}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
-  applyBtn.addEventListener("click", renderWithCurrentFilters);
-  regionSelect.addEventListener("change", renderWithCurrentFilters);
-  yearSelect.addEventListener("change", renderWithCurrentFilters);
+    const data = await response.json();
+    const page = Array.isArray(data) ? data : [];
+    collected.push(...page);
+
+    if (page.length < pageSize) {
+      break;
+    }
+    offset += pageSize;
+  }
+
+  allPeople = collected.map(mapPerson);
+  activeAlphabet = computeAlphabet(allPeople);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+async function loadStats() {
+  const personsEl = document.getElementById("statsPersons");
+  const docsEl = document.getElementById("statsDocuments");
+  if (!personsEl || !docsEl) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/stats`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const stats = await response.json();
+    personsEl.textContent = String(stats.persons ?? 0);
+    docsEl.textContent = String(stats.documents ?? 0);
+  } catch (_err) {
+    personsEl.textContent = "-";
+    docsEl.textContent = "-";
+  }
+}
+
+function showError(message) {
+  const container = document.getElementById("registryList");
+  container.innerHTML = `<div class='letter-empty'>${tr("list_error_prefix", "Failed to load list:")} ${message}</div>`;
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
   setupSearch();
-  setupFilters();
-  loadAndRender();
+  loadStats();
+  initSearchFromUrl();
+  try {
+    await loadPeople();
+    fillRegionFilter();
+    fillYearFilter();
+    applyFilters();
+  } catch (err) {
+    showError(err.message);
+  }
+
+  window.addEventListener("site-language-changed", () => {
+    fillRegionFilter();
+    fillYearFilter();
+    applyFilters();
+  });
 });

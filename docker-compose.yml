@@ -21,7 +21,7 @@ services:
 
   # 2. ChromaDB Vector Database
   vector_db:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.5.23
     container_name: hackathon_vector_db
     volumes:
       - ${CHROMA_DATA_DIR:-./runtime-data/chroma}:/chroma/chroma
@@ -62,18 +62,29 @@ services:
         condition: service_healthy
     networks:
       - hackathon_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - RAG_LLM_PROVIDER=${RAG_LLM_PROVIDER:-gemini}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - RAG_LLM_PROVIDER=${RAG_LLM_PROVIDER:-ollama}
       - RAG_GEMINI_MODEL=${RAG_GEMINI_MODEL:-gemini-1.5-flash}
+      - RAG_OPENAI_MODEL=${RAG_OPENAI_MODEL:-gpt-4o-mini}
       - RAG_CLAUDE_MODEL=${RAG_CLAUDE_MODEL:-claude-3-5-sonnet-20240620}
-      - RAG_EMBEDDING_PROVIDER=${RAG_EMBEDDING_PROVIDER:-gemini}
-      - RAG_GEMINI_EMBEDDING_MODEL=${RAG_GEMINI_EMBEDDING_MODEL:-models/embedding-001}
+      - RAG_GROQ_MODEL=${RAG_GROQ_MODEL:-groq/compound}
+      - RAG_EMBEDDING_PROVIDER=${RAG_EMBEDDING_PROVIDER:-ollama}
+      - RAG_GEMINI_EMBEDDING_MODEL=${RAG_GEMINI_EMBEDDING_MODEL:-models/text-embedding-004}
       - RAG_OPENAI_EMBEDDING_MODEL=${RAG_OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - RAG_OLLAMA_MODEL=${RAG_OLLAMA_MODEL:-llama3:8b}
       - CPP_BACKEND_URL=http://cpp_backend:8080
       - SECRET_KEY=${SECRET_KEY:-hackathon-secret-change-me}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminSecure123}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
       - DATABASE_URL=${DATABASE_URL:-postgresql://hackathon:hackathon@db:5432/hackathon}
       - CHROMA_HOST=vector_db
       - CHROMA_PORT=8000

@@ -15,19 +15,17 @@
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon">&#9881;</span>
-        <span class="logo-text">АРХИВ ПАМЯТИ</span>
+        <span class="logo-text" data-i18n="site_title">АРХИВ ПАМЯТИ</span>
       </div>
       <div class="search-bar">
-        <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
-        <button type="button" id="searchBtn">Найти</button>
+        <input type="text" data-i18n="search_placeholder" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
+        <button type="button" id="searchBtn" data-i18n="search_btn">Найти</button>
       </div>
       <nav class="header-nav">
-        <a href="index.html" class="nav-active">Главная</a>
-        <a href="list.html">База данных</a>
-        <a href="chat.html">Чат AI</a>
-        <a href="admin.html">Админ</a>
-        <a href="about.html">О проекте</a>
-        <a href="contacts.html">Контакты</a>
+        <a href="index.html" data-i18n="nav_main">Главная</a>
+        <a href="list.html" data-i18n="nav_db">База данных</a>
+        <a href="about.html" data-i18n="nav_about">О проекте</a>
+        <a href="contacts.html" data-i18n="nav_contacts">Контакты</a>
       </nav>
     </div>
   </header>
@@ -35,20 +33,20 @@
   <!-- HERO / INTRO -->
   <section class="hero">
     <div class="hero-inner">
-      <div class="hero-card">
+      <div class="hero-card" id="heroFindCard" role="button" tabindex="0" aria-label="Найти человека">
         <div class="hero-card-icon">&#128269;</div>
-        <h3>Найти человека</h3>
-        <p>Введите имя или фамилию в строку поиска, чтобы найти информацию о жертве репрессий.</p>
+        <h3 data-i18n="hero_find">Найти человека</h3>
+        <p data-i18n="hero_find_desc">Введите имя или фамилию в строку поиска, чтобы найти информацию о жертве репрессий.</p>
       </div>
-      <div class="hero-card">
+      <div class="hero-card" id="heroSuggestCard" role="button" tabindex="0" aria-label="Добавить сведения">
         <div class="hero-card-icon">&#9998;</div>
-        <h3>Добавить сведения</h3>
-        <p>Помогите дополнить архив — загрузите документы и воспоминания о ваших родственниках.</p>
+        <h3 data-i18n="hero_add">Добавить сведения</h3>
+        <p data-i18n="hero_add_desc">Помогите дополнить архив — загрузите документы и воспоминания о ваших родственниках.</p>
       </div>
-      <div class="hero-card">
+      <div class="hero-card" id="heroHelpCard" role="button" tabindex="0" aria-label="Помочь проекту">
         <div class="hero-card-icon">&#10084;</div>
-        <h3>Помочь проекту</h3>
-        <p>Станьте волонтёром или поддержите проект. Каждый вклад помогает сохранить память.</p>
+        <h3 data-i18n="hero_help">Помочь проекту</h3>
+        <p data-i18n="hero_help_desc">Станьте волонтёром или поддержите проект. Каждый вклад помогает сохранить память.</p>
       </div>
     </div>
   </section>
@@ -76,13 +74,13 @@
 
       <!-- Documents Gallery -->
       <section class="documents-section">
-        <h2>Документы</h2>
+        <h2 data-i18n="docs_title">Документы</h2>
         <div id="documentsGrid" class="documents-grid"></div>
       </section>
 
       <!-- Biography Section -->
       <section class="biography-section">
-        <h2>Биография</h2>
+        <h2 data-i18n="biography_title">Биография</h2>
         <div id="biographyText" class="biography-text"></div>
       </section>
 
@@ -91,27 +89,29 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-box">
-        <h4>Ресурсы</h4>
+        <h4 data-i18n="resources_title">Ресурсы</h4>
         <ul>
-          <li><a href="#">Архивные фонды</a></li>
-          <li><a href="#">Публикации</a></li>
-          <li><a href="#">Законодательство</a></li>
-          <li><a href="#">Методические материалы</a></li>
+          <li><a href="#" data-i18n="resources_archives">Архивные фонды</a></li>
+          <li><a href="#" data-i18n="resources_publications">Публикации</a></li>
+          <li><a href="#" data-i18n="resources_laws">Законодательство</a></li>
+          <li><a href="#" data-i18n="resources_methods">Методические материалы</a></li>
         </ul>
       </div>
       <div class="sidebar-box">
-        <h4>Статистика</h4>
-        <p class="sidebar-stat">Записей в базе: <strong>12 487</strong></p>
-        <p class="sidebar-stat">Документов: <strong>3 291</strong></p>
+        <h4 data-i18n="stats_title">Статистика</h4>
+        <p class="sidebar-stat"><span data-i18n="stats_records">Записей в базе:</span> <strong id="statsPersons">-</strong></p>
+        <p class="sidebar-stat"><span data-i18n="stats_documents">Документов:</span> <strong id="statsDocuments">-</strong></p>
       </div>
     </aside>
   </div>
 
   <!-- FOOTER -->
   <footer class="site-footer">
-    <p>&copy; 2024 Архив Памяти. Открытая энциклопедия жертв политических репрессий.</p>
+    <p data-i18n="footer_text">&copy; 2024 Архив Памяти. Открытая энциклопедия жертв политических репрессий.</p>
   </footer>
 
+  <script src="i18n.js"></script>
+  <script src="header-auth.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

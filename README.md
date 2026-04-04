@@ -1,51 +1,46 @@
-# Hackathon
+# 🏛️ Голос из Архива (Архив памяти) | Voice from the Archive
 
-Минимальная инструкция.
+![Python](https://img.shields.io/badge/Python-3.11-blue.svg?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.25+-FF4B4B.svg?logo=streamlit)
+![C++](https://img.shields.io/badge/C++-17-00599C.svg?logo=c%2B%2B)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791.svg?logo=postgresql)
+![Ollama](https://img.shields.io/badge/AI-Ollama_(Llama_3)-black.svg?logo=meta)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker)
 
-## Запуск из zip на сервере
+**«Архив памяти»** — это интеллектуальная поисковая система и цифровая база данных, соз��анная для сохранения исторической памяти о жертвах политических репрессий. Проект использует технологии искусственного интеллекта (RAG — Retrieval-Augmented Generation) для анализа архивных уголовных дел, справок и приговоров.
 
-1. Создай `.env` из `.env.example` и заполни секреты.
-2. Укажи отдельные папки для данных (в `.env`):
+Система работает **полностью локально** (без отправки конфиденциальных архивных данных в облачные API вроде OpenAI), обеспечивая максимальную безопасность и приватность данных.
 
-   - `DB_DATA_DIR=/srv/hackathon-data/postgres`
-   - `CHROMA_DATA_DIR=/srv/hackathon-data/chroma`
-   - `APP_DATA_DIR=/srv/hackathon-data/app`
+---
 
-3. Запусти:
+## ✨ Ключевые возможности
 
+- 🤖 **AI-Архивариус (Smart RAG):** Умный чат-бот, который отвечает на вопросы суровым, документальным языком, опираясь **исключительно** на загруженные архивные документы.
+- 🔐 **Privacy-First AI:** Генерация ответов и векторизация текста происходят локально с использованием `Ollama` (Llama 3 8B) и локальных эмбеддингов.
+- 📚 **База данных репрессированных:** Удобный интерфейс карточек (Person Cards) с биографиями, статьями обвинения и датами реабилитации.
+- 🔤 **Алфавитный указатель:** Быстрый поиск людей по алфавиту и фильтрация по профессиям.
+- ⚡ **Высокопроизводительный процессинг:** C++ бэкенд для быстрой нарезки (chunking) и очистки сырых текстовых документов от "мусора".
+
+---
+
+## 🏗️ Архитектура проекта
+
+Система построена на микросервисной архитектуре с использованием Docker Compose:
+
+1. **Frontend (Streamlit):** Пользовательский веб-интерфейс для чата, просмотра карточек и загрузки файлов.
+2. **Backend (FastAPI / Python):** Основное API, маршрутизация, бизнес-логика, авторизация (JWT) и оркестрация RAG-пайплайна.
+3. **Processing Node (C++ httplib):** Микросервис для лексического анализа, очистки Markdown и умного сплиттинга текста.
+4. **Database (PostgreSQL):** Хранение профилей людей (PersonCard), исходных документов, чанков и истории чатов.
+5. **AI Engine (Ollama):** Локальный инференс LLM для ответов на естественном языке.
+
+---
+
+## 🚀 Быстрый старт (Запуск через Docker)
+
+Для запуска проекта вам потребуется установленный **Docker** и **Docker Compose**.
+
+### 1. Клонирование репозитория
 ```bash
-chmod +x scripts/*.sh
-./scripts/start.sh
-```
-
-## Важно
-
-- Не используй `docker compose down -v` в проде, если нужно сохранить БД.
-
-## RAG: Gemini или Claude
-
-В `.env` можно выбрать провайдер генерации для RAG:
-
-- `RAG_LLM_PROVIDER=gemini` (по умолчанию)
-- `RAG_LLM_PROVIDER=claude`
-
-Для Claude укажи:
-
-- `ANTHROPIC_API_KEY=...`
-- `RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620`
-
-Для эмбеддингов (поиск по векторной базе) можно выбрать провайдер отдельно:
-
-- `RAG_EMBEDDING_PROVIDER=gemini`
-- `RAG_EMBEDDING_PROVIDER=openai`
-
-Пример режима Claude + OpenAI embeddings (без Gemini):
-
-- `RAG_LLM_PROVIDER=claude`
-- `ANTHROPIC_API_KEY=...`
-- `RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620`
-- `RAG_EMBEDDING_PROVIDER=openai`
-- `OPENAI_API_KEY=...`
-- `RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large`
-
-Да, названия моделей ты задаешь сам в `.env` (например `RAG_CLAUDE_MODEL`).
+git clone https://github.com/Ваш_Пользователь/hackathon.git
+cd hackathon

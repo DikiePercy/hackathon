@@ -3,76 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Чат с AI — Архив Памяти</title>
+  <title>ИИ-ассистент — Архив памяти</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/x-icon" href="images/iconic_biber.png">
+  <link rel="stylesheet" href="ai-chat.css">
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon">&#9881;</span>
-        <a href="index.html" class="logo-text">АРХИВ ПАМЯТИ</a>
+        <span class="logo-text">АРХИВ ПАМЯТИ</span>
+      </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
+        <button type="button" id="searchBtn">Найти</button>
       </div>
       <nav class="header-nav">
         <a href="index.html">Главная</a>
         <a href="list.html">База данных</a>
-        <a href="chat.html" class="nav-active">Чат AI</a>
-        <a href="admin.html">Админ</a>
         <a href="about.html">О проекте</a>
         <a href="contacts.html">Контакты</a>
+        <a href="chat.html" class="nav-active">Чат AI</a>
       </nav>
     </div>
   </header>
 
-  <div class="main-wrapper">
-    <main class="content">
-      <section class="biography-section">
-        <h2>Чат с нейросетью по архиву</h2>
-        <p class="chat-helper">Войдите в аккаунт, затем задайте вопрос по загруженным документам.</p>
+  <main class="main-wrapper chat-page-layout">
+    <section class="chat-container">
+      <div class="chat-header" data-i18n="chat_header">Диалог с ИИ-ассистентом</div>
 
-        <div class="admin-panel">
-          <h3>Авторизация</h3>
-          <div class="admin-form-grid">
-            <input id="loginUser" type="text" placeholder="Логин">
-            <input id="loginPass" type="password" placeholder="Пароль">
-          </div>
-          <div class="admin-actions">
-            <button id="registerBtn" type="button">Регистрация</button>
-            <button id="loginBtn" type="button">Войти</button>
-            <button id="logoutBtn" type="button">Выйти</button>
-          </div>
-          <p id="chatAuthStatus">Не авторизован</p>
+      <div class="chat-history" id="chatMessages">
+        <div class="message ai" data-i18n="chat_intro">
+          Здравствуйте. Я ИИ-ассистент проекта «Архив памяти». Напишите имя, фамилию или место, и я помогу найти информацию по архивным базам.
         </div>
+      </div>
 
-        <div class="admin-panel">
-          <h3>Диалог</h3>
-          <div class="admin-actions">
-            <label for="historyLimit" class="chat-limit-label">Лимит истории:</label>
-            <select id="historyLimit">
-              <option value="10">10</option>
-              <option value="20" selected>20</option>
-              <option value="50">50</option>
-            </select>
-            <button id="loadHistoryBtn" type="button">Загрузить историю</button>
-            <button id="loadMoreHistoryBtn" type="button">Еще</button>
-          </div>
-          <div id="chatHistoryMeta" class="chat-helper"></div>
-          <div id="chatHistory" class="chat-history-box"></div>
-          <div id="chatMessages" class="chat-box"></div>
-          <textarea id="chatInput" rows="4" placeholder="Введите вопрос..."></textarea>
-          <div class="admin-actions">
-            <button id="sendChatBtn" type="button">Отправить</button>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
+      <div class="history-toolbar">
+        <label for="historyLimit" class="chat-limit-label" data-i18n="chat_history_limit">Лимит истории:</label>
+        <select id="historyLimit">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+        </select>
+        <button id="loadHistoryBtn" type="button" data-i18n="chat_load_history">Загрузить историю</button>
+        <button id="loadMoreHistoryBtn" type="button" data-i18n="chat_load_more">Еще</button>
+      </div>
+
+      <div id="chatStatus" class="chat-helper" data-i18n="chat_not_authorized">Не авторизован</div>
+      <div id="chatHistoryMeta" class="chat-helper"></div>
+      <div id="chatHistory" class="chat-archive"></div>
+
+      <div class="chat-input-area">
+        <textarea id="chatInput" rows="2" data-i18n="chat_input_placeholder" placeholder="Введите ваш запрос здесь..." autocomplete="off"></textarea>
+        <button id="sendChatBtn" type="button" data-i18n="chat_send">Отправить</button>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-box">
+        <h4>Ресурсы</h4>
+        <ul>
+          <li><a href="#">Архивные фонды</a></li>
+          <li><a href="#">Публикации</a></li>
+          <li><a href="#">Карта</a></li>
+          <li><a href="#">Методические материалы</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-box">
+        <h4>Статистика</h4>
+        <p class="sidebar-stat">Записей в базе: <strong id="statsPersons">-</strong></p>
+        <p class="sidebar-stat">Документов: <strong id="statsDocuments">-</strong></p>
+      </div>
+    </aside>
+  </main>
 
   <footer class="site-footer">
     <p>&copy; 2024 Архив Памяти</p>
   </footer>
 
+  <script src="i18n.js"></script>
+  <script src="header-auth.js"></script>
   <script src="chat-script.js"></script>
 </body>
 </html>
