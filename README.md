@@ -74,3 +74,18 @@ chmod +x scripts/*.sh
 - `RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large`
 
 Да, названия моделей ты задаешь сам в `.env` (например `RAG_CLAUDE_MODEL`).
+
+## Автоимпорт ассетов при старте
+
+При запуске backend автоматически импортируются данные из:
+
+- `asset/seed.json`
+- `asset/test_data/seed.json`
+- `asset/test_data/documents/*.txt`
+
+Флаги в `.env`:
+
+- `AUTO_IMPORT_BUNDLED_SEEDS=true`
+- `AUTO_IMPORT_BUNDLED_DOCUMENTS=true`
+
+Импорт идемпотентный: дубликаты пропускаются.

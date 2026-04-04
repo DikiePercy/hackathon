@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from database import get_db, PersonCard, User
+from database import get_db, PersonCard, User, Document, DocumentChunk
 from auth import get_current_user, require_admin
 from rag_engine import add_documents_to_vector_db
 
@@ -227,6 +227,7 @@ def import_bundled_documents_into_db(db: Session) -> dict:
     files = sorted([p for p in documents_dir.glob("*.txt") if p.is_file()])
     created = 0
     skipped_duplicates = 0
+    vector_failed = 0
     processed_files: List[str] = []
 
     for doc_path in files:
@@ -245,7 +246,11 @@ def import_bundled_documents_into_db(db: Session) -> dict:
         chunks = _chunk_text_for_bootstrap(content)
 
         if chunks:
-            add_documents_to_vector_db(chunks, person_id=person_id, document_name=doc_path.name)
+            try:
+                add_documents_to_vector_db(chunks, person_id=person_id, document_name=doc_path.name)
+            except Exception as exc:
+                vector_failed += 1
+                print(f"[bundled-docs] vector import skipped for {rel_name}: {exc}")
             for idx, chunk_text in enumerate(chunks):
                 db.add(DocumentChunk(
                     document_id=document.id,
@@ -260,6 +265,7 @@ def import_bundled_documents_into_db(db: Session) -> dict:
     return {
         "created": created,
         "skipped_duplicates": skipped_duplicates,
+        "vector_failed": vector_failed,
         "total": len(files),
         "files": processed_files,
     }

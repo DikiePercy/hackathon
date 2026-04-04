@@ -309,7 +309,7 @@ def search_documents(query: str, top_k: int = 3) -> Dict[str, List[Any]]:
         )
         if fallback["documents"]:
             return {"documents": fallback["documents"], "metadatas": fallback["metadatas"]}
-        raise RuntimeError(f"Chroma similarity search failed: {exc}") from exc
+        return {"documents": [], "metadatas": []}
 
     documents = (results.get("documents") or [[]])[0]
     metadatas = (results.get("metadatas") or [[]])[0]
@@ -412,7 +412,7 @@ def search_documents_ranked(
         )
         if fallback["documents"]:
             return fallback
-        raise RuntimeError(f"Chroma similarity search failed: {exc}") from exc
+        return {"documents": [], "metadatas": [], "scores": []}
 
     documents = (results.get("documents") or [[]])[0]
     metadatas = (results.get("metadatas") or [[]])[0]
