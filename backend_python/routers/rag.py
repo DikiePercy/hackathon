@@ -7,7 +7,7 @@ import httpx
 import os
 from database import get_db, User, ChatHistory, PersonCard, Document, DocumentChunk
 from auth import get_current_user, require_admin
-from rag_engine import add_documents_to_vector_db, answer_with_rag, get_runtime_config
+from rag_engine import add_documents_to_vector_db, answer_with_rag
 import json
 
 router = APIRouter()
@@ -310,18 +310,17 @@ async def upload_documents_batch(
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
-    chat_request: ChatRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+        chat_request: ChatRequest,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     import asyncio
     from functools import partial
-    
+
     query = chat_request.query
     top_k = max(1, min(int(chat_request.top_k or 4), 8))
-    recent_history = _load_recent_chat_history(db, current_user.id, limit=6)
 
-    # Run RAG in thread pool to avoid blocking event loop
+    # Запускаем RAG
     loop = asyncio.get_event_loop()
     try:
         rag_func = partial(
@@ -331,7 +330,7 @@ async def chat(
             candidate_k=max(10, top_k * 4),
             min_score=0.2,
             person_id=chat_request.person_id,
-            chat_history=recent_history,
+            # chat_history убрали, так как наша локальная модель пока без памяти
         )
         rag_result = await loop.run_in_executor(None, rag_func)
     except ValueError as e:
@@ -348,31 +347,11 @@ async def chat(
     answer = rag_result["answer"]
     person_ids = rag_result["sources"]
     citations = rag_result.get("citations", [])
-    retrieval_mode = rag_result.get("retrieval_mode", "unknown")
-    retrieval_error = rag_result.get("retrieval_error")
 
-    runtime = get_runtime_config(mask_secrets=False)
-    llm_provider = runtime.get("rag_llm_provider")
-    if llm_provider == "gemini":
-        llm_model = runtime.get("rag_gemini_model")
-    elif llm_provider == "openai":
-        llm_model = runtime.get("rag_openai_model")
-    elif llm_provider == "claude":
-        llm_model = runtime.get("rag_claude_model")
-    elif llm_provider == "groq":
-        llm_model = runtime.get("rag_groq_model")
-    else:
-        llm_model = None
+    # Получаем конфиг без аргументов
+    runtime = get_runtime_config()
 
-    embedding_provider = runtime.get("rag_embedding_provider")
-    if embedding_provider == "gemini":
-        embedding_model = runtime.get("rag_gemini_embedding_model")
-    elif embedding_provider == "openai":
-        embedding_model = runtime.get("rag_openai_embedding_model")
-    else:
-        embedding_model = None
-    
-    # Save to history via backend abstraction (sql now, cloud later).
+    # Сохраняем историю
     try:
         _save_chat_history(db, current_user.id, query, answer, person_ids)
     except RuntimeError as e:
@@ -380,19 +359,18 @@ async def chat(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e)
         )
-    
+
     return ChatResponse(
         answer=answer,
         sources=person_ids,
         citations=citations,
-        llm_provider=llm_provider,
-        llm_model=llm_model,
-        embedding_provider=embedding_provider,
-        embedding_model=embedding_model,
-        retrieval_mode=retrieval_mode,
-        retrieval_error=retrieval_error,
+        llm_provider=runtime.get("llm_provider"),
+        llm_model=runtime.get("model"),
+        embedding_provider=runtime.get("embedding_provider"),
+        embedding_model="ollama-embed",
+        retrieval_mode="hybrid",
+        retrieval_error=None,
     )
-
 
 @router.get("/chat/history")
 def get_chat_history(

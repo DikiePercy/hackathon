@@ -366,3 +366,11 @@ def answer_with_rag(
 
     unique_sources = sorted(set(sources))
     return {"answer": answer, "sources": unique_sources, "citations": citations}
+
+def get_runtime_config() -> Dict[str, Any]:
+    """Return current RAG configuration for frontend/admin."""
+    return {
+        "llm_provider": RAG_LLM_PROVIDER,
+        "embedding_provider": RAG_EMBEDDING_PROVIDER,
+        "model": RAG_OLLAMA_MODEL if RAG_LLM_PROVIDER == "ollama" else "gemini"
+    }
