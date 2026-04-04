@@ -259,9 +259,9 @@ function bindCardAction(element, action) {
 }
 
 function setupHeroCards() {
-  const searchInput = document.getElementById("searchInput");
 
   // bindCardAction(document.getElementById("heroFindCard"), () => {
+  //   const searchInput = document.getElementById("searchInput");
   //   searchInput.focus();
   //   searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
   // });
