@@ -16,6 +16,7 @@ RUNTIME_ENV_KEYS = {
     "rag_llm_provider": "RAG_LLM_PROVIDER",
     "rag_embedding_provider": "RAG_EMBEDDING_PROVIDER",
     "rag_gemini_model": "RAG_GEMINI_MODEL",
+    "rag_openai_model": "RAG_OPENAI_MODEL",
     "rag_claude_model": "RAG_CLAUDE_MODEL",
     "rag_groq_model": "RAG_GROQ_MODEL",
     "rag_gemini_embedding_model": "RAG_GEMINI_EMBEDDING_MODEL",
@@ -86,6 +87,7 @@ def get_runtime_config(mask_secrets: bool = False) -> Dict[str, Any]:
         "rag_llm_provider": (os.getenv("RAG_LLM_PROVIDER", "gemini") or "gemini").strip().lower(),
         "rag_embedding_provider": (os.getenv("RAG_EMBEDDING_PROVIDER", "gemini") or "gemini").strip().lower(),
         "rag_gemini_model": os.getenv("RAG_GEMINI_MODEL", "gemini-1.5-flash"),
+        "rag_openai_model": os.getenv("RAG_OPENAI_MODEL", "gpt-4o-mini"),
         "rag_claude_model": os.getenv("RAG_CLAUDE_MODEL", "claude-3-5-sonnet-20240620"),
         "rag_groq_model": os.getenv("RAG_GROQ_MODEL", "groq/compound"),
         "rag_gemini_embedding_model": _normalize_gemini_embedding_model(
@@ -202,6 +204,15 @@ def _get_embeddings() -> Any:
 
 def _build_llm() -> Any:
     cfg = get_runtime_config(mask_secrets=False)
+
+    if cfg["rag_llm_provider"] == "openai":
+        if not cfg["openai_api_key"]:
+            raise ValueError("OPENAI_API_KEY is not configured")
+        return ChatOpenAI(
+            model=cfg["rag_openai_model"],
+            api_key=cfg["openai_api_key"],
+            temperature=0.3,
+        )
 
     if cfg["rag_llm_provider"] == "groq":
         if not cfg["groq_api_key"]:
@@ -392,6 +403,7 @@ def search_documents_ranked(
 
     where_filter = {"person_id": int(person_id)} if person_id is not None else None
 
+    retrieval_mode = "vector"
     try:
         embeddings = _get_embeddings()
         collection = _get_collection()
@@ -403,6 +415,7 @@ def search_documents_ranked(
             include=["documents", "metadatas", "distances"],
         )
     except Exception as exc:
+        retrieval_mode = "lexical_fallback"
         fallback = _lexical_fallback_search(
             query=query,
             top_k=top_k,
@@ -411,8 +424,9 @@ def search_documents_ranked(
             where_filter=where_filter,
         )
         if fallback["documents"]:
+            fallback["retrieval_mode"] = retrieval_mode
             return fallback
-        return {"documents": [], "metadatas": [], "scores": []}
+        return {"documents": [], "metadatas": [], "scores": [], "retrieval_mode": retrieval_mode}
 
     documents = (results.get("documents") or [[]])[0]
     metadatas = (results.get("metadatas") or [[]])[0]
@@ -442,6 +456,7 @@ def search_documents_ranked(
         "documents": [row["document"] for row in filtered],
         "metadatas": [row["metadata"] for row in filtered],
         "scores": [round(float(row["score"]), 4) for row in filtered],
+        "retrieval_mode": retrieval_mode,
     }
 
 
@@ -519,11 +534,14 @@ def answer_with_rag(
     metas = search_result["metadatas"]
     scores = search_result.get("scores", [])
 
+    retrieval_mode = search_result.get("retrieval_mode", "unknown")
+
     if not docs:
         return {
             "answer": "Информация по запросу не найдена в загруженных документах.",
             "sources": [],
             "citations": [],
+            "retrieval_mode": retrieval_mode,
         }
 
     answer = generate_answer(query=query, context_docs=docs, chat_history=chat_history)
@@ -552,4 +570,9 @@ def answer_with_rag(
         )
 
     unique_sources = sorted(set(sources))
-    return {"answer": answer, "sources": unique_sources, "citations": citations}
+    return {
+        "answer": answer,
+        "sources": unique_sources,
+        "citations": citations,
+        "retrieval_mode": retrieval_mode,
+    }

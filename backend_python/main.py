@@ -54,6 +54,7 @@ class AIRuntimeConfigPatch(BaseModel):
     rag_llm_provider: str | None = None
     rag_embedding_provider: str | None = None
     rag_gemini_model: str | None = None
+    rag_openai_model: str | None = None
     rag_claude_model: str | None = None
     rag_groq_model: str | None = None
     rag_gemini_embedding_model: str | None = None
@@ -99,7 +100,7 @@ def root() -> dict:
 def admin_get_ai_runtime_config(current_user: User = Depends(require_admin)) -> dict:
     return {
         "config": get_runtime_config(mask_secrets=True),
-        "allowed_llm_providers": ["gemini", "claude", "groq"],
+        "allowed_llm_providers": ["gemini", "openai", "claude", "groq"],
         "allowed_embedding_providers": ["gemini", "openai"],
     }
 
@@ -113,8 +114,8 @@ def admin_update_ai_runtime_config(
 
     if "rag_llm_provider" in updates:
         updates["rag_llm_provider"] = (updates["rag_llm_provider"] or "").strip().lower()
-        if updates["rag_llm_provider"] not in {"gemini", "claude", "groq"}:
-            raise HTTPException(status_code=400, detail="rag_llm_provider must be one of: gemini, claude, groq")
+        if updates["rag_llm_provider"] not in {"gemini", "openai", "claude", "groq"}:
+            raise HTTPException(status_code=400, detail="rag_llm_provider must be one of: gemini, openai, claude, groq")
 
     if "rag_embedding_provider" in updates:
         updates["rag_embedding_provider"] = (updates["rag_embedding_provider"] or "").strip().lower()

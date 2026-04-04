@@ -46,11 +46,23 @@
         </div>
 
         <div class="admin-panel admin-protected" hidden>
+          <h3>Массовый импорт документов (до 20 за раз)</h3>
+          <div class="admin-form-grid admin-form-vertical">
+            <input id="batchPersonId" type="number" placeholder="ID карточки (необязательно)">
+            <input id="batchDocuments" type="file" accept=".txt,.md,text/plain,text/markdown" multiple>
+          </div>
+          <div class="admin-actions">
+            <button id="batchImportDocsBtn" type="button">Импортировать документы пакетом</button>
+          </div>
+        </div>
+
+        <div class="admin-panel admin-protected" hidden>
           <h3 data-i18n="admin_ai_settings_title">Настройки AI токенов и провайдеров</h3>
           <div class="admin-form-grid admin-form-vertical">
             <label for="llmProvider" data-i18n="admin_llm_provider_label">LLM провайдер</label>
             <select id="llmProvider">
               <option value="gemini">gemini</option>
+              <option value="openai">openai</option>
               <option value="claude">claude</option>
               <option value="groq">groq</option>
             </select>
@@ -66,6 +78,7 @@
             <input id="anthropicApiKey" type="password" placeholder="ANTHROPIC_API_KEY">
             <input id="groqApiKey" type="password" placeholder="GROQ_API_KEY">
             <input id="geminiModel" type="text" placeholder="RAG_GEMINI_MODEL">
+            <input id="openaiModel" type="text" placeholder="RAG_OPENAI_MODEL">
             <input id="claudeModel" type="text" placeholder="RAG_CLAUDE_MODEL">
             <input id="groqModel" type="text" placeholder="RAG_GROQ_MODEL">
             <input id="geminiEmbeddingModel" type="text" placeholder="RAG_GEMINI_EMBEDDING_MODEL">

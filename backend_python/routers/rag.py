@@ -7,7 +7,7 @@ import httpx
 import os
 from database import get_db, User, ChatHistory, PersonCard, Document, DocumentChunk
 from auth import get_current_user, require_admin
-from rag_engine import add_documents_to_vector_db, answer_with_rag
+from rag_engine import add_documents_to_vector_db, answer_with_rag, get_runtime_config
 import json
 
 router = APIRouter()
@@ -34,6 +34,11 @@ class ChatResponse(BaseModel):
     answer: str
     sources: List[int]
     citations: List[ChatCitation]
+    llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
+    embedding_provider: Optional[str] = None
+    embedding_model: Optional[str] = None
+    retrieval_mode: Optional[str] = None
 
 
 def _save_chat_history_sql(db: Session, user_id: int, query: str, answer: str, person_ids: List[int]) -> None:
@@ -184,6 +189,124 @@ async def upload_document(
     }
 
 
+@router.post("/api/documents/upload-batch")
+async def upload_documents_batch(
+    files: List[UploadFile] = File(...),
+    person_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+
+    if len(files) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 files per batch")
+
+    if person_id is not None:
+        card = db.query(PersonCard).filter(PersonCard.id == person_id).first()
+        if not card:
+            raise HTTPException(status_code=404, detail="Person card not found")
+
+    allowed_extensions = (".txt", ".md")
+    created = 0
+    failed = 0
+    vector_failed = 0
+    results: List[dict] = []
+
+    for file in files:
+        filename = file.filename or "unnamed"
+
+        if not file.filename:
+            failed += 1
+            results.append({"filename": filename, "status": "failed", "error": "File name is required"})
+            continue
+
+        if not file.filename.lower().endswith(allowed_extensions):
+            failed += 1
+            results.append({"filename": filename, "status": "failed", "error": "Only .txt and .md files are supported"})
+            continue
+
+        try:
+            content = await file.read()
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                failed += 1
+                results.append({"filename": filename, "status": "failed", "error": "Unable to decode file as UTF-8 text"})
+                continue
+
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(f"{CPP_BACKEND_URL}/process", json={"text": text})
+            response.raise_for_status()
+            cpp_result = response.json()
+
+            if cpp_result.get("is_garbage", True):
+                failed += 1
+                results.append({"filename": filename, "status": "failed", "error": "Document appears to be garbage or unreadable"})
+                continue
+
+            chunks = cpp_result.get("chunks", [])
+            if not chunks:
+                failed += 1
+                results.append({"filename": filename, "status": "failed", "error": "No valid content found in document"})
+                continue
+
+            document = Document(filename=file.filename, content=text)
+            db.add(document)
+            db.flush()
+
+            vector_error: Optional[str] = None
+            try:
+                add_documents_to_vector_db(chunks, person_id, file.filename)
+            except Exception as exc:
+                vector_failed += 1
+                vector_error = str(exc)
+
+            for idx, chunk_text in enumerate(chunks):
+                db.add(DocumentChunk(
+                    document_id=document.id,
+                    person_id=person_id,
+                    chunk_text=chunk_text,
+                    chunk_index=idx,
+                ))
+
+            db.commit()
+            created += 1
+
+            row = {
+                "filename": filename,
+                "status": "imported",
+                "document_id": document.id,
+                "person_id": person_id,
+                "chunks_created": len(chunks),
+                "vector_indexed": vector_error is None,
+            }
+            if vector_error is not None:
+                row["vector_error"] = vector_error
+            results.append(row)
+        except httpx.RequestError as exc:
+            db.rollback()
+            failed += 1
+            results.append({"filename": filename, "status": "failed", "error": f"C++ backend unavailable: {exc}"})
+        except httpx.HTTPStatusError as exc:
+            db.rollback()
+            failed += 1
+            results.append({"filename": filename, "status": "failed", "error": f"C++ backend error: {exc}"})
+        except Exception as exc:
+            db.rollback()
+            failed += 1
+            results.append({"filename": filename, "status": "failed", "error": str(exc)})
+
+    return {
+        "message": "Batch import finished",
+        "total": len(files),
+        "imported": created,
+        "failed": failed,
+        "vector_failed": vector_failed,
+        "results": results,
+    }
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(
     chat_request: ChatRequest,
@@ -217,6 +340,28 @@ def chat(
     answer = rag_result["answer"]
     person_ids = rag_result["sources"]
     citations = rag_result.get("citations", [])
+    retrieval_mode = rag_result.get("retrieval_mode", "unknown")
+
+    runtime = get_runtime_config(mask_secrets=False)
+    llm_provider = runtime.get("rag_llm_provider")
+    if llm_provider == "gemini":
+        llm_model = runtime.get("rag_gemini_model")
+    elif llm_provider == "openai":
+        llm_model = runtime.get("rag_openai_model")
+    elif llm_provider == "claude":
+        llm_model = runtime.get("rag_claude_model")
+    elif llm_provider == "groq":
+        llm_model = runtime.get("rag_groq_model")
+    else:
+        llm_model = None
+
+    embedding_provider = runtime.get("rag_embedding_provider")
+    if embedding_provider == "gemini":
+        embedding_model = runtime.get("rag_gemini_embedding_model")
+    elif embedding_provider == "openai":
+        embedding_model = runtime.get("rag_openai_embedding_model")
+    else:
+        embedding_model = None
     
     # Save to history via backend abstraction (sql now, cloud later).
     try:
@@ -227,7 +372,16 @@ def chat(
             detail=str(e)
         )
     
-    return ChatResponse(answer=answer, sources=person_ids, citations=citations)
+    return ChatResponse(
+        answer=answer,
+        sources=person_ids,
+        citations=citations,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        embedding_provider=embedding_provider,
+        embedding_model=embedding_model,
+        retrieval_mode=retrieval_mode,
+    )
 
 
 @router.get("/chat/history")

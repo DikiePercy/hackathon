@@ -30,6 +30,7 @@ function applyAiConfigToInputs(cfg = {}) {
   document.getElementById("llmProvider").value = cfg.rag_llm_provider || "gemini";
   document.getElementById("embeddingProvider").value = cfg.rag_embedding_provider || "gemini";
   document.getElementById("geminiModel").value = cfg.rag_gemini_model || "";
+  document.getElementById("openaiModel").value = cfg.rag_openai_model || "gpt-4o-mini";
   document.getElementById("claudeModel").value = cfg.rag_claude_model || "";
   document.getElementById("groqModel").value = cfg.rag_groq_model || "groq/compound";
   document.getElementById("geminiEmbeddingModel").value = cfg.rag_gemini_embedding_model || "";
@@ -226,6 +227,53 @@ async function importBundledSeeds() {
   await loadCards();
 }
 
+async function importDocumentsBatch() {
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    setAdminStatus(tr("admin_need_auth", "Admin authorization is required"));
+    return;
+  }
+
+  const input = document.getElementById("batchDocuments");
+  const personIdRaw = document.getElementById("batchPersonId").value.trim();
+  const files = Array.from(input.files || []);
+
+  if (!files.length) {
+    setAdminStatus("Выберите хотя бы один файл (.txt/.md)");
+    return;
+  }
+
+  if (files.length > 20) {
+    setAdminStatus("Можно загрузить максимум 20 файлов за один раз");
+    return;
+  }
+
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  if (personIdRaw) {
+    formData.append("person_id", personIdRaw);
+  }
+
+  const response = await apiFetch("/api/documents/upload-batch", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка пакетного импорта: ${body.detail || response.status}`);
+    return;
+  }
+
+  const body = await response.json();
+  const imported = Number(body.imported || 0);
+  const failed = Number(body.failed || 0);
+  const vectorFailed = Number(body.vector_failed || 0);
+  setAdminStatus(`Пакетный импорт завершен: загружено ${imported}, ошибок ${failed}, без векторов ${vectorFailed}`);
+
+  input.value = "";
+  await loadCards();
+}
+
 async function loadAiRuntimeConfig() {
   if (!currentAdmin || currentAdmin.role !== "admin") {
     setAdminStatus(tr("admin_need_auth", "Admin authorization is required"));
@@ -255,6 +303,7 @@ async function saveAiRuntimeConfig() {
     rag_llm_provider: document.getElementById("llmProvider").value,
     rag_embedding_provider: document.getElementById("embeddingProvider").value,
     rag_gemini_model: document.getElementById("geminiModel").value.trim(),
+    rag_openai_model: document.getElementById("openaiModel").value.trim(),
     rag_claude_model: document.getElementById("claudeModel").value.trim(),
     rag_groq_model: document.getElementById("groqModel").value.trim(),
     rag_gemini_embedding_model: document.getElementById("geminiEmbeddingModel").value.trim(),
@@ -442,6 +491,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("seedImportBtn").addEventListener("click", importSeedFile);
   document.getElementById("seedExamplesImportBtn").addEventListener("click", importBundledSeeds);
+  document.getElementById("batchImportDocsBtn").addEventListener("click", importDocumentsBatch);
   document.getElementById("createCardBtn").addEventListener("click", createCard);
   document.getElementById("refreshCardsBtn").addEventListener("click", loadCards);
   document.getElementById("loadSuggestionsBtn").addEventListener("click", loadSuggestions);

@@ -784,6 +784,24 @@ img {
     order: 3;
   }
 
+  .search-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-bar input {
+    border-right: 1px solid #555;
+    border-radius: 8px;
+    min-height: 40px;
+  }
+
+  .search-bar button {
+    width: 100%;
+    border-radius: 8px;
+    min-height: 40px;
+  }
+
   .site-header.menu-open .header-nav {
     order: 4;
   }
@@ -794,9 +812,9 @@ img {
 
   .search-bar input,
   .search-bar button {
-    font-size: 13px;
-    padding-top: 7px;
-    padding-bottom: 7px;
+    font-size: 14px;
+    padding-top: 9px;
+    padding-bottom: 9px;
   }
 
   .header-nav {

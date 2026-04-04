@@ -104,6 +104,23 @@ function addSources(citations, sourceIds) {
   box.scrollTop = box.scrollHeight;
 }
 
+function addRuntimeInfo(payload) {
+  const box = document.getElementById("chatMessages");
+  if (!box) return;
+
+  const llmProvider = payload?.llm_provider || "unknown";
+  const llmModel = payload?.llm_model || "unknown";
+  const embProvider = payload?.embedding_provider || "unknown";
+  const embModel = payload?.embedding_model || "unknown";
+  const retrievalMode = payload?.retrieval_mode || "unknown";
+
+  const div = document.createElement("div");
+  div.className = "message ai";
+  div.innerHTML = `<small>LLM: ${llmProvider} (${llmModel}) | Embeddings: ${embProvider} (${embModel}) | Retrieval: ${retrievalMode}</small>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
 function renderHistoryItems(items, append = false) {
   const box = document.getElementById("chatHistory");
   if (!append) {
@@ -232,6 +249,7 @@ async function sendMessage() {
   const payload = await response.json();
   addMessage("assistant", payload.answer || tr("chat_empty_answer", "Empty response"));
   addSources(payload.citations || [], payload.sources || []);
+  addRuntimeInfo(payload);
   await loadHistory(true);
 }
 
