@@ -18,19 +18,35 @@ echo "║     🚀 ДЕПЛОЙ HACKATHON ПРОЕКТА С OLLAMA              
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-# Проверка, что скрипт запущен не от root
-if [ "$EUID" -eq 0 ]; then 
-   echo -e "${RED}❌ Не запускайте этот скрипт от root!${NC}"
-   echo "Запустите от обычного пользователя с sudo правами:"
-   echo "  curl -fsSL https://raw.githubusercontent.com/DikiePercy/hackathon/biber-core/scripts/deploy.sh | bash"
-   exit 1
+# Режим прав: root или sudo
+if [ "$EUID" -eq 0 ]; then
+    SUDO=""
+    RUN_USER="${SUDO_USER:-root}"
+    RUN_GROUP="${SUDO_USER:-root}"
+    echo -e "${YELLOW}ℹ️  Запуск от root: поддерживается${NC}"
+else
+    if ! command -v sudo >/dev/null 2>&1 || ! sudo -v; then
+        echo -e "${RED}❌ У пользователя нет sudo прав${NC}"
+        exit 1
+    fi
+    SUDO="sudo"
+    RUN_USER="$USER"
+    RUN_GROUP="$(id -gn "$USER")"
 fi
 
-# Проверка наличия sudo
-if ! sudo -v; then
-    echo -e "${RED}❌ У пользователя нет sudo прав${NC}"
+# Docker Compose helper
+compose_cmd() {
+    if $SUDO docker compose version >/dev/null 2>&1; then
+        $SUDO docker compose "$@"
+        return
+    fi
+    if command -v docker-compose >/dev/null 2>&1; then
+        $SUDO docker-compose "$@"
+        return
+    fi
+    echo -e "${RED}❌ Docker Compose не найден${NC}"
     exit 1
-fi
+}
 
 # Проверка системы
 echo -e "${YELLOW}📋 Проверка системы...${NC}"
@@ -54,16 +70,16 @@ fi
 
 # 1. Установка зависимостей
 echo -e "${YELLOW}📦 Установка зависимостей...${NC}"
-sudo apt update
-sudo apt install -y git curl wget
+$SUDO apt update
+$SUDO apt install -y git curl wget
 
 # Установка Docker
 if ! command -v docker &> /dev/null; then
     echo -e "${YELLOW}🐳 Установка Docker...${NC}"
-    sudo apt install -y docker.io docker-compose-v2
-    sudo systemctl enable docker
-    sudo systemctl start docker
-    sudo usermod -aG docker $USER
+    $SUDO apt install -y docker.io docker-compose-v2
+    $SUDO systemctl enable docker
+    $SUDO systemctl start docker
+    $SUDO usermod -aG "$RUN_USER"
     echo -e "${GREEN}✅ Docker установлен${NC}"
 else
     echo -e "${GREEN}✅ Docker уже установлен${NC}"
@@ -80,17 +96,17 @@ fi
 
 # 3. Настройка Ollama
 echo -e "${YELLOW}⚙️  Настройка Ollama...${NC}"
-sudo mkdir -p /etc/systemd/system/ollama.service.d/
-sudo tee /etc/systemd/system/ollama.service.d/override.conf > /dev/null << 'EOF'
+$SUDO mkdir -p /etc/systemd/system/ollama.service.d/
+$SUDO tee /etc/systemd/system/ollama.service.d/override.conf > /dev/null << 'EOF'
 [Service]
 Environment="OLLAMA_HOST=0.0.0.0:11434"
 Environment="OLLAMA_NUM_PARALLEL=2"
 Environment="OLLAMA_MAX_LOADED_MODELS=1"
 EOF
 
-sudo systemctl daemon-reload
-sudo systemctl enable ollama
-sudo systemctl restart ollama
+$SUDO systemctl daemon-reload
+$SUDO systemctl enable ollama
+$SUDO systemctl restart ollama
 
 # Ждём запуска Ollama
 sleep 3
@@ -131,7 +147,7 @@ if [ -d "$INSTALL_DIR" ]; then
     read -p "Удалить и клонировать заново? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        sudo rm -rf "$INSTALL_DIR"
+        $SUDO rm -rf "$INSTALL_DIR"
     else
         echo "Используем существующую директорию"
         cd "$INSTALL_DIR"
@@ -140,19 +156,19 @@ if [ -d "$INSTALL_DIR" ]; then
 fi
 
 if [ ! -d "$INSTALL_DIR" ]; then
-    sudo git clone https://github.com/DikiePercy/hackathon.git "$INSTALL_DIR"
+    $SUDO git clone https://github.com/DikiePercy/hackathon.git "$INSTALL_DIR"
 fi
 
 cd "$INSTALL_DIR"
-sudo chown -R $USER:$USER "$INSTALL_DIR"
+$SUDO chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR"
 git checkout biber-core
 
 echo -e "${GREEN}✅ Проект клонирован${NC}"
 
 # 6. Создание директорий для данных
 echo -e "${YELLOW}📁 Создание директорий для данных...${NC}"
-sudo mkdir -p /srv/hackathon-data/{postgres,chroma,app}
-sudo chown -R $USER:$USER /srv/hackathon-data
+$SUDO mkdir -p /srv/hackathon-data/{postgres,chroma,app}
+$SUDO chown -R "$RUN_USER:$RUN_GROUP" /srv/hackathon-data
 echo -e "${GREEN}✅ Директории созданы${NC}"
 
 # 7. Настройка .env
@@ -169,6 +185,11 @@ if [ ! -f .env ]; then
     sed -i "s/RAG_LLM_PROVIDER=.*/RAG_LLM_PROVIDER=ollama/" .env
     sed -i "s/RAG_EMBEDDING_PROVIDER=.*/RAG_EMBEDDING_PROVIDER=ollama/" .env
     sed -i "s/RAG_OLLAMA_MODEL=.*/RAG_OLLAMA_MODEL=$OLLAMA_MODEL/" .env
+    if grep -q '^OLLAMA_BASE_URL=' .env; then
+        sed -i 's|^OLLAMA_BASE_URL=.*$|OLLAMA_BASE_URL=http://host.docker.internal:11434|' .env
+    else
+        echo "OLLAMA_BASE_URL=http://host.docker.internal:11434" >> .env
+    fi
     
     # Production настройки
     sed -i "s/COOKIE_SECURE=.*/COOKIE_SECURE=false/" .env  # Поменяйте на true если есть SSL
@@ -186,16 +207,20 @@ else
     echo -e "${YELLOW}⚠️  .env уже существует, не изменяем${NC}"
 fi
 
+# Нормализуем OLLAMA_BASE_URL и в уже существующем .env,
+# чтобы backend в Docker не ходил на localhost контейнера.
+if grep -q '^OLLAMA_BASE_URL=' .env; then
+    sed -i 's|^OLLAMA_BASE_URL=.*$|OLLAMA_BASE_URL=http://host.docker.internal:11434|' .env
+else
+    echo "OLLAMA_BASE_URL=http://host.docker.internal:11434" >> .env
+fi
+
 # 8. Запуск Docker контейнеров
 echo -e "${YELLOW}🐳 Сборка и запуск Docker контейнеров...${NC}"
 echo "Это займёт несколько минут..."
 
-# Из-за того что мы добавили пользователя в группу docker,
-# нужно перелогиниться. Используем newgrp для этой сессии.
-newgrp docker << EOFGRP
-docker-compose build
-docker-compose up -d
-EOFGRP
+compose_cmd build
+compose_cmd up -d
 
 echo -e "${GREEN}✅ Контейнеры запущены${NC}"
 
@@ -207,11 +232,11 @@ sleep 30
 echo -e "${YELLOW}🔍 Проверка работы...${NC}"
 
 # Проверка контейнеров
-if docker-compose ps | grep -q "Up"; then
+if compose_cmd ps | grep -q "Up"; then
     echo -e "${GREEN}✅ Контейнеры запущены${NC}"
 else
     echo -e "${RED}❌ Не все контейнеры запущены${NC}"
-    docker-compose ps
+    compose_cmd ps
     exit 1
 fi
 
@@ -221,7 +246,7 @@ if curl -s http://localhost:8000/health | grep -q "ok"; then
     curl -s http://localhost:8000/health
 else
     echo -e "${RED}❌ Backend не отвечает${NC}"
-    echo "Проверьте логи: docker-compose logs python_backend"
+    echo "Проверьте логи: docker compose logs python_backend"
     exit 1
 fi
 
@@ -241,7 +266,7 @@ echo ""
 echo "1. Измените пароль администратора:"
 echo "   cd $INSTALL_DIR"
 echo "   nano .env  # Найдите ADMIN_PASSWORD и измените"
-echo "   docker-compose restart python_backend"
+echo "   docker compose restart python_backend"
 echo ""
 echo "2. Проверьте работу:"
 echo "   curl http://localhost:8000/health"
