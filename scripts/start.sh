@@ -116,14 +116,16 @@ GEMINI_API_KEY=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 GROQ_API_KEY=
-RAG_LLM_PROVIDER=gemini
+RAG_LLM_PROVIDER=ollama
 RAG_GEMINI_MODEL=gemini-1.5-flash
 RAG_OPENAI_MODEL=gpt-4o-mini
 RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620
 RAG_GROQ_MODEL=groq/compound
-RAG_EMBEDDING_PROVIDER=gemini
+RAG_EMBEDDING_PROVIDER=ollama
 RAG_GEMINI_EMBEDDING_MODEL=models/text-embedding-004
 RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+RAG_OLLAMA_MODEL=llama3:8b
 AUTO_IMPORT_BUNDLED_SEEDS=true
 AUTO_IMPORT_BUNDLED_DOCUMENTS=true
 CORS_ALLOW_ORIGINS=http://localhost:8501,http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:5173
@@ -336,6 +338,52 @@ compose_cmd() {
   exit 1
 }
 
+ensure_ollama_on_11434() {
+  local llm_provider="${RAG_LLM_PROVIDER:-}"
+  local embedding_provider="${RAG_EMBEDDING_PROVIDER:-}"
+  local ollama_model="${RAG_OLLAMA_MODEL:-llama3:8b}"
+
+  if [[ "$llm_provider" != "ollama" && "$embedding_provider" != "ollama" ]]; then
+    log "Ollama startup skipped (providers are not set to ollama)"
+    return
+  fi
+
+  if ! command -v ollama >/dev/null 2>&1; then
+    log "Ollama is not installed. Installing via official script"
+    curl -fsSL https://ollama.com/install.sh | sh
+  fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    as_root systemctl enable ollama >/dev/null 2>&1 || true
+    as_root systemctl restart ollama >/dev/null 2>&1 || as_root systemctl start ollama >/dev/null 2>&1 || true
+  fi
+
+  if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    log "Starting ollama serve in background"
+    pkill -f "ollama serve" >/dev/null 2>&1 || true
+    nohup ollama serve >/tmp/ollama.log 2>&1 &
+  fi
+
+  log "Waiting for Ollama API on 127.0.0.1:11434"
+  local i
+  for i in $(seq 1 30); do
+    if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+      log "Ollama API is ready"
+      break
+    fi
+    sleep 1
+  done
+
+  if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    log "Ollama API did not become ready on 127.0.0.1:11434"
+    log "Check logs: sudo journalctl -u ollama -n 120 --no-pager or tail -n 120 /tmp/ollama.log"
+    exit 1
+  fi
+
+  log "Ensuring Ollama model is available: $ollama_model"
+  ollama pull "$ollama_model" || true
+}
+
 ensure_prerequisites
 require_cmd docker
 ensure_env_file
@@ -355,6 +403,8 @@ set -a
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.env"
 set +a
+
+ensure_ollama_on_11434
 
 DB_DIR="${DB_DATA_DIR:-$REPO_ROOT/runtime-data/postgres}"
 CHROMA_DIR="${CHROMA_DATA_DIR:-$REPO_ROOT/runtime-data/chroma}"
