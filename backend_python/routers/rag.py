@@ -278,7 +278,13 @@ async def chat(
     from rag_engine import _get_llm
     from langchain.schema import HumanMessage, SystemMessage
 
-    llm = _get_llm()
+    try:
+        llm = _get_llm()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM initialization failed: {e}",
+        )
     system_prompt = (
         "Ты строгий, объективный и беспристрастный архивариус базы данных «Архив памяти». "
         "Твоя задача — выдавать исторические справки СТРОГО на основе предоставленного текста.\n"

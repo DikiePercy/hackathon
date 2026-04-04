@@ -100,8 +100,8 @@ def root() -> dict:
 def admin_get_ai_runtime_config(current_user: User = Depends(require_admin)) -> dict:
     return {
         "config": get_runtime_config(mask_secrets=True),
-        "allowed_llm_providers": ["gemini", "openai", "claude", "groq"],
-        "allowed_embedding_providers": ["gemini", "openai"],
+        "allowed_llm_providers": ["gemini", "openai", "claude", "groq", "ollama"],
+        "allowed_embedding_providers": ["gemini", "openai", "ollama"],
     }
 
 
@@ -114,13 +114,13 @@ def admin_update_ai_runtime_config(
 
     if "rag_llm_provider" in updates:
         updates["rag_llm_provider"] = (updates["rag_llm_provider"] or "").strip().lower()
-        if updates["rag_llm_provider"] not in {"gemini", "openai", "claude", "groq"}:
-            raise HTTPException(status_code=400, detail="rag_llm_provider must be one of: gemini, openai, claude, groq")
+        if updates["rag_llm_provider"] not in {"gemini", "openai", "claude", "groq", "ollama"}:
+            raise HTTPException(status_code=400, detail="rag_llm_provider must be one of: gemini, openai, claude, groq, ollama")
 
     if "rag_embedding_provider" in updates:
         updates["rag_embedding_provider"] = (updates["rag_embedding_provider"] or "").strip().lower()
-        if updates["rag_embedding_provider"] not in {"gemini", "openai"}:
-            raise HTTPException(status_code=400, detail="rag_embedding_provider must be one of: gemini, openai")
+        if updates["rag_embedding_provider"] not in {"gemini", "openai", "ollama"}:
+            raise HTTPException(status_code=400, detail="rag_embedding_provider must be one of: gemini, openai, ollama")
 
     effective = update_runtime_config(updates)
     return {"message": "AI runtime config updated", "config": effective}
