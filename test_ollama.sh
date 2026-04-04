@@ -3,6 +3,19 @@
 
 set -e
 
+compose_exec() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose exec -T python_backend "$@"
+        return
+    fi
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose exec -T python_backend "$@"
+        return
+    fi
+    echo "   ✗ Docker Compose not found"
+    exit 1
+}
+
 echo "=== Testing Ollama Integration ==="
 echo ""
 
@@ -29,19 +42,19 @@ fi
 # 3. Test Python backend configuration
 echo ""
 echo "3. Checking Python backend configuration..."
-docker exec hackathon_python env | grep -E "RAG_LLM_PROVIDER=ollama" > /dev/null
+compose_exec env | grep -E "RAG_LLM_PROVIDER=ollama" > /dev/null
 echo "   ✓ RAG_LLM_PROVIDER=ollama"
 
-docker exec hackathon_python env | grep -E "RAG_EMBEDDING_PROVIDER=ollama" > /dev/null
+compose_exec env | grep -E "RAG_EMBEDDING_PROVIDER=ollama" > /dev/null
 echo "   ✓ RAG_EMBEDDING_PROVIDER=ollama"
 
-docker exec hackathon_python env | grep -E "OLLAMA_BASE_URL" > /dev/null
+compose_exec env | grep -E "OLLAMA_BASE_URL" > /dev/null
 echo "   ✓ OLLAMA_BASE_URL is set"
 
 # 4. Test simple generation from container
 echo ""
 echo "4. Testing Ollama generation from Docker container..."
-docker exec hackathon_python curl -s http://host.docker.internal:11434/api/generate -d '{
+compose_exec curl -s http://host.docker.internal:11434/api/generate -d '{
   "model": "llama3:8b",
   "prompt": "Hello, world!",
   "stream": false
