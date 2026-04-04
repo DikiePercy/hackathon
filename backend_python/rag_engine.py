@@ -367,14 +367,21 @@ def answer_with_rag(
     unique_sources = sorted(set(sources))
     return {"answer": answer, "sources": unique_sources, "citations": citations}
 
-def get_runtime_config() -> Dict[str, Any]:
+def get_runtime_config(mask_secrets: bool = True) -> Dict[str, Any]:
     """Return current RAG configuration for frontend/admin."""
     return {
+        "rag_llm_provider": RAG_LLM_PROVIDER,
+        "rag_embedding_provider": RAG_EMBEDDING_PROVIDER,
+        "rag_gemini_model": RAG_GEMINI_MODEL,
+        "rag_claude_model": RAG_CLAUDE_MODEL,
+        "rag_ollama_model": RAG_OLLAMA_MODEL,
+        "rag_gemini_embedding_model": RAG_GEMINI_EMBEDDING_MODEL,
+        "rag_openai_embedding_model": RAG_OPENAI_EMBEDDING_MODEL,
         "llm_provider": RAG_LLM_PROVIDER,
         "embedding_provider": RAG_EMBEDDING_PROVIDER,
-        "model": RAG_OLLAMA_MODEL if RAG_LLM_PROVIDER == "ollama" else "gemini"
+        "model": RAG_OLLAMA_MODEL if RAG_LLM_PROVIDER == "ollama" else RAG_GEMINI_MODEL
     }
 
 def update_runtime_config(updates: Dict[str, Any]) -> Dict[str, Any]:
-    """Stub to support old code. Local RAG doesn't update config via API."""
+    """Stub to support old code."""
     return get_runtime_config()
