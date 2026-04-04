@@ -6,7 +6,7 @@ from typing import List, Optional
 import httpx
 import os
 from database import get_db, User, ChatHistory, PersonCard, Document, DocumentChunk
-from auth import get_current_user, require_admin
+from auth import get_current_user
 from rag_engine import add_documents_to_vector_db, answer_with_rag, get_runtime_config
 import json
 
