@@ -110,14 +110,14 @@ docker-compose ps
 ## 📚 Документация
 
 ### Для хакатона:
-- **[PITCH.md](PITCH.md)** - Краткий питч (2-3 минуты)
-- **[HACKATHON_PRESENTATION.md](HACKATHON_PRESENTATION.md)** - Полная презентация (10-15 минут)
-- **[CHECKLIST.md](CHECKLIST.md)** - Чеклист подготовки к защите
+- **[PITCH.md](docs/PITCH.md)** - Краткий питч (2-3 минуты)
+- **[HACKATHON_PRESENTATION.md](docs/HACKATHON_PRESENTATION.md)** - Полная презентация (10-15 минут)
+- **[CHECKLIST.md](docs/CHECKLIST.md)** - Чеклист подготовки к защите
 
 ### Для деплоя:
-- **[QUICK_DEPLOY.md](QUICK_DEPLOY.md)** - Быстрый деплой за 5 минут
+- **[QUICK_DEPLOY.md](docs/QUICK_DEPLOY.md)** - Быстрый деплой за 5 минут
 - **[README_HOSTING.md](README_HOSTING.md)** - Полное руководство по хостингу
-- **[HOSTING_COMPARISON.md](HOSTING_COMPARISON.md)** - Сравнение провайдеров
+- **[HOSTING_COMPARISON.md](docs/HOSTING_COMPARISON.md)** - Сравнение провайдеров
 
 ---
 
@@ -214,8 +214,8 @@ MIT License - см. [LICENSE](LICENSE)
 
 Этот проект создан для хакатона. Для подготовки к защите:
 
-1. Прочитать **[PITCH.md](PITCH.md)** - запомнить ключевые тезисы
-2. Прочитать **[CHECKLIST.md](CHECKLIST.md)** - подготовиться к демо
+1. Прочитать **[PITCH.md](docs/PITCH.md)** - запомнить ключевые тезисы
+2. Прочитать **[CHECKLIST.md](docs/CHECKLIST.md)** - подготовиться к демо
 3. Запустить систему и протестировать основные функции
 4. Подготовить 3-5 примеров вопросов для демо
 
