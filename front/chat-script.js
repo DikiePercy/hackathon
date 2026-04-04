@@ -113,10 +113,15 @@ function addRuntimeInfo(payload) {
   const embProvider = payload?.embedding_provider || "unknown";
   const embModel = payload?.embedding_model || "unknown";
   const retrievalMode = payload?.retrieval_mode || "unknown";
+  const retrievalError = payload?.retrieval_error || "";
 
   const div = document.createElement("div");
   div.className = "message ai";
-  div.innerHTML = `<small>LLM: ${llmProvider} (${llmModel}) | Embeddings: ${embProvider} (${embModel}) | Retrieval: ${retrievalMode}</small>`;
+  let line = `LLM: ${llmProvider} (${llmModel}) | Embeddings: ${embProvider} (${embModel}) | Retrieval: ${retrievalMode}`;
+  if (retrievalMode === "lexical_fallback" && retrievalError) {
+    line += ` | Cause: ${retrievalError}`;
+  }
+  div.innerHTML = `<small>${line}</small>`;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }

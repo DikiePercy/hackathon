@@ -39,6 +39,7 @@ class ChatResponse(BaseModel):
     embedding_provider: Optional[str] = None
     embedding_model: Optional[str] = None
     retrieval_mode: Optional[str] = None
+    retrieval_error: Optional[str] = None
 
 
 def _save_chat_history_sql(db: Session, user_id: int, query: str, answer: str, person_ids: List[int]) -> None:
@@ -341,6 +342,7 @@ def chat(
     person_ids = rag_result["sources"]
     citations = rag_result.get("citations", [])
     retrieval_mode = rag_result.get("retrieval_mode", "unknown")
+    retrieval_error = rag_result.get("retrieval_error")
 
     runtime = get_runtime_config(mask_secrets=False)
     llm_provider = runtime.get("rag_llm_provider")
@@ -381,6 +383,7 @@ def chat(
         embedding_provider=embedding_provider,
         embedding_model=embedding_model,
         retrieval_mode=retrieval_mode,
+        retrieval_error=retrieval_error,
     )
 
 

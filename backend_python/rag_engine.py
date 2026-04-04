@@ -404,6 +404,7 @@ def search_documents_ranked(
     where_filter = {"person_id": int(person_id)} if person_id is not None else None
 
     retrieval_mode = "vector"
+    retrieval_error: str | None = None
     try:
         embeddings = _get_embeddings()
         collection = _get_collection()
@@ -416,17 +417,25 @@ def search_documents_ranked(
         )
     except Exception as exc:
         retrieval_mode = "lexical_fallback"
+        retrieval_error = str(exc)
         fallback = _lexical_fallback_search(
             query=query,
             top_k=top_k,
             candidate_k=candidate_k,
-            min_score=min_score,
+            min_score=min(min_score, 0.05),
             where_filter=where_filter,
         )
         if fallback["documents"]:
             fallback["retrieval_mode"] = retrieval_mode
+            fallback["retrieval_error"] = retrieval_error
             return fallback
-        return {"documents": [], "metadatas": [], "scores": [], "retrieval_mode": retrieval_mode}
+        return {
+            "documents": [],
+            "metadatas": [],
+            "scores": [],
+            "retrieval_mode": retrieval_mode,
+            "retrieval_error": retrieval_error,
+        }
 
     documents = (results.get("documents") or [[]])[0]
     metadatas = (results.get("metadatas") or [[]])[0]
@@ -457,6 +466,7 @@ def search_documents_ranked(
         "metadatas": [row["metadata"] for row in filtered],
         "scores": [round(float(row["score"]), 4) for row in filtered],
         "retrieval_mode": retrieval_mode,
+        "retrieval_error": retrieval_error,
     }
 
 
@@ -535,6 +545,7 @@ def answer_with_rag(
     scores = search_result.get("scores", [])
 
     retrieval_mode = search_result.get("retrieval_mode", "unknown")
+    retrieval_error = search_result.get("retrieval_error")
 
     if not docs:
         return {
@@ -542,6 +553,7 @@ def answer_with_rag(
             "sources": [],
             "citations": [],
             "retrieval_mode": retrieval_mode,
+            "retrieval_error": retrieval_error,
         }
 
     answer = generate_answer(query=query, context_docs=docs, chat_history=chat_history)
@@ -575,4 +587,5 @@ def answer_with_rag(
         "sources": unique_sources,
         "citations": citations,
         "retrieval_mode": retrieval_mode,
+        "retrieval_error": retrieval_error,
     }
