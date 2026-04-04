@@ -250,31 +250,36 @@ async def upload_documents_batch(
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
         chat_request: ChatRequest,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        db: Session = Depends(get_db)
 ):
     query = chat_request.query
     person_id = chat_request.person_id
 
-    # 1. Достаем текст из SQL
+    # 1. УМНЫЙ SQL-ПОИСК для хакатона (вместо ChromaDB)
+    chunks = []
     if person_id:
         chunks = db.query(DocumentChunk).filter(DocumentChunk.person_id == person_id).limit(10).all()
     else:
-        chunks = db.query(DocumentChunk).limit(10).all()
+        # Разбиваем вопрос пользователя на слова длиннее 3 букв
+        words = [w.lower() for w in query.replace("?", "").replace(".", "").replace(",", "").split() if len(w) > 3]
+        if words:
+            from sqlalchemy import or_
+            # Ищем в базе куски текста, где есть хотя бы одно из этих слов (например "сыдыкова")
+            conditions = [DocumentChunk.chunk_text.ilike(f"%{w}%") for w in words]
+            chunks = db.query(DocumentChunk).filter(or_(*conditions)).limit(5).all()
+        else:
+            chunks = db.query(DocumentChunk).limit(5).all()
 
     context_text = "\n\n".join([c.chunk_text for c in chunks])
 
-    # Делаем заглушку МАКСИМАЛЬНО реалистичной для демо
+    # Если в базе рил ничего не найдено по этим словам:
     if not context_text:
         context_text = (
-            "СПРАВКА ПО АРХИВНОМУ ДЕЛУ № 1456:\n"
-            "Обвиняется по ст. 58-2, 58-7, 58-8, 58-11 УК РСФСР (участие в контрреволюционной националистической организации). "
-            "Осужден выездной сессией Военной коллегии Верховного суда СССР. Приговор: Высшая мера наказания (ВМН) — расстрел с конфискацией имущества. "
-            "Приговор приведен в исполнение. "
-            "Реабилитирован посмертно Военной коллегией Верховного суда СССР за отсутствием состава преступления."
+            "СВЕДЕНИЙ НЕ ОБНАРУЖЕНО.\n"
+            "В архивных фондах нет упоминаний по данному запросу. Возможно, дело было уничтожено или засекречено."
         )
 
-    # 2. ЖЕСТКИЙ ПРОМПТ для строгой стилистики
+    # 2. ЖЕСТКИЙ ПРОМПТ
     from rag_engine import _get_llm
     from langchain.schema import HumanMessage, SystemMessage
 
@@ -289,20 +294,20 @@ async def chat(
         )
     system_prompt = (
         "Ты строгий, объективный и беспристрастный архивариус базы данных «Архив памяти». "
-        "Твоя задача — выдавать исторические справки СТРОГО на основе предоставленного текста.\n"
+        "Твоя задача — выдавать исторические справки СТРОГО на основе предоставленного архивного текста.\n"
         "ПРАВИЛА:\n"
         "1. Отвечай сухим, канцелярским и документальным языком.\n"
-        "2. НИКАКИХ эмоций, восклицательных знаков, приветствий и слов вроде 'выдающийся', 'знаменитый'.\n"
-        "3. Если спрашивают имя, строй ответ как выписку из личного дела.\n\n"
+        "2. НИКАКИХ эмоций, восклицательных знаков и слов приветствия.\n"
+        "3. Если в тексте нет ответа, ответь: 'В предоставленных архивных материалах сведений не обнаружено'.\n\n"
         f"АРХИВНЫЙ ТЕКСТ:\n{context_text[:4000]}"
     )
 
     try:
         if hasattr(llm, "invoke") and "Chat" in type(llm).__name__:
-            resp = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=f"Запрос пользователя: {query}")])
+            resp = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=f"Запрос: {query}")])
             answer = resp.content if hasattr(resp, 'content') else str(resp)
         else:
-            resp = llm.invoke(f"{system_prompt}\n\nЗапрос пользователя: {query}")
+            resp = llm.invoke(f"{system_prompt}\n\nЗапрос: {query}")
             answer = resp.strip() if isinstance(resp, str) else str(resp).strip()
     except Exception as e:
         answer = f"Сбой доступа к архивному фонду (LLM Error): {e}"
@@ -318,7 +323,8 @@ async def chat(
     ]
 
     try:
-        _save_chat_history(db, current_user.id, query, answer, [person_id or 1])
+        from routers.rag import _save_chat_history
+        _save_chat_history(db, 1, query, answer, [person_id or 1]) # Хардкодим ID юзера для хакатона
     except:
         pass
 
