@@ -1,12 +1,22 @@
 /* ===== RESET & BASE ===== */
+@font-face {
+    font-family: 'B52';
+    src: local('B52 Regular'), local('B52-Regular'),
+         url('fonts/B52.woff2') format('woff2'),
+         url('fonts/B52.woff') format('woff'),
+         url('fonts/B52.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: 'B52', Arial, Helvetica, sans-serif !important;
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
   background-color: #f4f1ea;
   color: #222;
   line-height: 1.6;
@@ -924,7 +934,11 @@ img {
 @media (max-width: 520px) {
   .header-inner {
     padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
   }
+
+ 
 
   .logo-icon {
     font-size: 18px;
