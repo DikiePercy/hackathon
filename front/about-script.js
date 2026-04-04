@@ -1,6 +1,10 @@
 const partnersGrid = document.getElementById("partners-grid");
 const statsGrid = document.getElementById("stats-grid");
 
+function tr(key, fallback) {
+    return window.AppI18n?.t?.(key) || fallback;
+}
+
 function resolveApiBase() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get("api");
@@ -15,12 +19,12 @@ const API_BASE = resolveApiBase();
 function renderPartners() {
     if (!partnersGrid) return;
     const partners = [
-        "Государственный архив РФ",
-        "Мемориал",
-        "Сахаровский центр",
-        "РГАСПИ",
-        "Яд Вашем",
-        "Национальный архив РК"
+        tr("about_partner_1", "State Archive of the Russian Federation"),
+        tr("about_partner_2", "Memorial"),
+        tr("about_partner_3", "Sakharov Center"),
+        tr("about_partner_4", "RGASPI"),
+        tr("about_partner_5", "Yad Vashem"),
+        tr("about_partner_6", "National Archive of the Kyrgyz Republic")
     ];
 
     partnersGrid.innerHTML = "";
@@ -53,8 +57,8 @@ async function renderStats() {
     }
 
     const cards = [
-        { n: persons, l: "Записей в базе" },
-        { n: documents, l: "Документов в базе" }
+        { n: persons, l: tr("about_stats_records", "Records in database") },
+        { n: documents, l: tr("about_stats_documents", "Documents in database") }
     ];
 
     cards.forEach((stat) => {
@@ -69,4 +73,9 @@ async function renderStats() {
 document.addEventListener("DOMContentLoaded", async () => {
     renderPartners();
     await renderStats();
+
+    window.addEventListener("site-language-changed", async () => {
+        renderPartners();
+        await renderStats();
+    });
 });

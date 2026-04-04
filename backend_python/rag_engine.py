@@ -8,26 +8,77 @@ from langchain.schema import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-RAG_LLM_PROVIDER = (os.getenv("RAG_LLM_PROVIDER", "gemini") or "gemini").strip().lower()
-RAG_EMBEDDING_PROVIDER = (os.getenv("RAG_EMBEDDING_PROVIDER", "gemini") or "gemini").strip().lower()
-RAG_GEMINI_MODEL = os.getenv("RAG_GEMINI_MODEL", "gemini-1.5-flash")
-RAG_CLAUDE_MODEL = os.getenv("RAG_CLAUDE_MODEL", "claude-3-5-sonnet-20240620")
-RAG_GEMINI_EMBEDDING_MODEL = os.getenv("RAG_GEMINI_EMBEDDING_MODEL", "models/embedding-001")
-RAG_OPENAI_EMBEDDING_MODEL = os.getenv("RAG_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
-CHROMA_PATH = os.getenv("CHROMA_PATH", "/app/chroma_db")
-CHROMA_HOST = os.getenv("CHROMA_HOST", "")
-CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
-CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "documents")
+RUNTIME_ENV_KEYS = {
+    "gemini_api_key": "GEMINI_API_KEY",
+    "openai_api_key": "OPENAI_API_KEY",
+    "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "rag_llm_provider": "RAG_LLM_PROVIDER",
+    "rag_embedding_provider": "RAG_EMBEDDING_PROVIDER",
+    "rag_gemini_model": "RAG_GEMINI_MODEL",
+    "rag_claude_model": "RAG_CLAUDE_MODEL",
+    "rag_gemini_embedding_model": "RAG_GEMINI_EMBEDDING_MODEL",
+    "rag_openai_embedding_model": "RAG_OPENAI_EMBEDDING_MODEL",
+}
+
+
+def get_runtime_config(mask_secrets: bool = False) -> Dict[str, Any]:
+    config: Dict[str, Any] = {
+        "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
+        "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
+        "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", ""),
+        "rag_llm_provider": (os.getenv("RAG_LLM_PROVIDER", "gemini") or "gemini").strip().lower(),
+        "rag_embedding_provider": (os.getenv("RAG_EMBEDDING_PROVIDER", "gemini") or "gemini").strip().lower(),
+        "rag_gemini_model": os.getenv("RAG_GEMINI_MODEL", "gemini-1.5-flash"),
+        "rag_claude_model": os.getenv("RAG_CLAUDE_MODEL", "claude-3-5-sonnet-20240620"),
+        "rag_gemini_embedding_model": os.getenv("RAG_GEMINI_EMBEDDING_MODEL", "models/embedding-001"),
+        "rag_openai_embedding_model": os.getenv("RAG_OPENAI_EMBEDDING_MODEL", "text-embedding-3-large"),
+    }
+
+    if not mask_secrets:
+        return config
+
+    def mask(value: str) -> str:
+        if not value:
+            return ""
+        if len(value) <= 6:
+            return "*" * len(value)
+        return f"{value[:3]}{'*' * (len(value) - 6)}{value[-3:]}"
+
+    masked = dict(config)
+    masked["gemini_api_key"] = mask(config["gemini_api_key"])
+    masked["openai_api_key"] = mask(config["openai_api_key"])
+    masked["anthropic_api_key"] = mask(config["anthropic_api_key"])
+    return masked
+
+
+def _reset_runtime_clients() -> None:
+    global _embeddings, _llm
+    _embeddings = None
+    _llm = None
+
+
+def update_runtime_config(updates: Dict[str, Any]) -> Dict[str, Any]:
+    for key, env_key in RUNTIME_ENV_KEYS.items():
+        if key not in updates:
+            continue
+        value = updates[key]
+        if value is None:
+            continue
+        value_str = str(value).strip()
+        os.environ[env_key] = value_str
+
+    _reset_runtime_clients()
+    return get_runtime_config(mask_secrets=True)
 
 
 def _build_chroma_client() -> chromadb.ClientAPI:
+    chroma_path = os.getenv("CHROMA_PATH", "/app/chroma_db")
+    chroma_host = os.getenv("CHROMA_HOST", "")
+    chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
     try:
-        if CHROMA_HOST:
-            return chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
-        return chromadb.PersistentClient(path=CHROMA_PATH)
+        if chroma_host:
+            return chromadb.HttpClient(host=chroma_host, port=chroma_port)
+        return chromadb.PersistentClient(path=chroma_path)
     except Exception as exc:
         raise RuntimeError(f"Failed to initialize Chroma client: {exc}") from exc
 
@@ -44,36 +95,39 @@ def _get_client() -> chromadb.ClientAPI:
 
 
 def _get_collection() -> Any:
+    chroma_collection = os.getenv("CHROMA_COLLECTION", "documents")
     try:
         global _collection
         if _collection is None:
-            _collection = _get_client().get_or_create_collection(name=CHROMA_COLLECTION)
+            _collection = _get_client().get_or_create_collection(name=chroma_collection)
         return _collection
     except Exception as exc:
-        raise RuntimeError(f"Failed to access Chroma collection '{CHROMA_COLLECTION}': {exc}") from exc
+        raise RuntimeError(f"Failed to access Chroma collection '{chroma_collection}': {exc}") from exc
 
 
 _embeddings: Any | None = None
 
 
 def _build_embeddings() -> Any:
-    if RAG_EMBEDDING_PROVIDER == "openai":
-        if not OPENAI_API_KEY:
+    cfg = get_runtime_config(mask_secrets=False)
+
+    if cfg["rag_embedding_provider"] == "openai":
+        if not cfg["openai_api_key"]:
             raise ValueError("OPENAI_API_KEY is not configured")
         return OpenAIEmbeddings(
-            model=RAG_OPENAI_EMBEDDING_MODEL,
-            openai_api_key=OPENAI_API_KEY,
+            model=cfg["rag_openai_embedding_model"],
+            openai_api_key=cfg["openai_api_key"],
         )
 
-    if RAG_EMBEDDING_PROVIDER == "gemini":
-        if not GEMINI_API_KEY:
+    if cfg["rag_embedding_provider"] == "gemini":
+        if not cfg["gemini_api_key"]:
             raise ValueError("GEMINI_API_KEY is not configured")
         return GoogleGenerativeAIEmbeddings(
-            model=RAG_GEMINI_EMBEDDING_MODEL,
-            google_api_key=GEMINI_API_KEY,
+            model=cfg["rag_gemini_embedding_model"],
+            google_api_key=cfg["gemini_api_key"],
         )
 
-    raise ValueError(f"Unsupported RAG_EMBEDDING_PROVIDER: {RAG_EMBEDDING_PROVIDER}")
+    raise ValueError(f"Unsupported RAG_EMBEDDING_PROVIDER: {cfg['rag_embedding_provider']}")
 
 
 def _get_embeddings() -> Any:
@@ -84,8 +138,10 @@ def _get_embeddings() -> Any:
 
 
 def _build_llm() -> Any:
-    if RAG_LLM_PROVIDER == "claude":
-        if not ANTHROPIC_API_KEY:
+    cfg = get_runtime_config(mask_secrets=False)
+
+    if cfg["rag_llm_provider"] == "claude":
+        if not cfg["anthropic_api_key"]:
             raise ValueError("ANTHROPIC_API_KEY is not configured")
         try:
             from langchain_anthropic import ChatAnthropic
@@ -94,18 +150,18 @@ def _build_llm() -> Any:
                 "Claude provider requires 'langchain-anthropic'. Install dependency first"
             ) from exc
         return ChatAnthropic(
-            model=RAG_CLAUDE_MODEL,
-            anthropic_api_key=ANTHROPIC_API_KEY,
+            model=cfg["rag_claude_model"],
+            anthropic_api_key=cfg["anthropic_api_key"],
             temperature=0.3,
         )
 
     # Default provider: Gemini
-    if not GEMINI_API_KEY:
+    if not cfg["gemini_api_key"]:
         raise ValueError("GEMINI_API_KEY is not configured")
     return ChatGoogleGenerativeAI(
-        model=RAG_GEMINI_MODEL,
+        model=cfg["rag_gemini_model"],
         temperature=0.3,
-        google_api_key=GEMINI_API_KEY,
+        google_api_key=cfg["gemini_api_key"],
     )
 
 

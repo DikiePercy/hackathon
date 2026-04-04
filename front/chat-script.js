@@ -1,6 +1,18 @@
 let historyOffset = 0;
 let currentUser = null;
 
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
+function tf(key, fallback, vars = {}) {
+  let text = tr(key, fallback);
+  Object.entries(vars).forEach(([name, value]) => {
+    text = text.replaceAll(`{${name}}`, String(value ?? ""));
+  });
+  return text;
+}
+
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("api");
@@ -71,8 +83,8 @@ function addSources(citations, sourceIds) {
   wrap.className = "message ai";
 
   const idsText = Array.isArray(sourceIds) && sourceIds.length
-    ? `Источники person_id: ${sourceIds.join(", ")}`
-    : "Источники не найдены";
+    ? `${tr("chat_sources_person_ids", "Source person_id:")} ${sourceIds.join(", ")}`
+    : tr("chat_sources_not_found", "No sources found");
 
   let html = `<div><strong>${idsText}</strong></div>`;
   if (Array.isArray(citations) && citations.length) {
@@ -100,7 +112,7 @@ function renderHistoryItems(items, append = false) {
 
   if (!Array.isArray(items) || !items.length) {
     if (!append) {
-      box.innerHTML = "История пуста";
+      box.innerHTML = tr("chat_history_empty", "History is empty");
     }
     return;
   }
@@ -114,9 +126,9 @@ function renderHistoryItems(items, append = false) {
       : "-";
     item.innerHTML = `
       <div class="chat-history-time">${ts}</div>
-      <div><strong>Вы:</strong> ${entry.user_message || ""}</div>
-      <div><strong>AI:</strong> ${entry.bot_response || ""}</div>
-      <div class="chat-history-sources">sources: ${src}</div>
+      <div><strong>${tr("chat_history_you", "You")}:</strong> ${entry.user_message || ""}</div>
+      <div><strong>${tr("chat_history_ai", "AI")}:</strong> ${entry.bot_response || ""}</div>
+      <div class="chat-history-sources">${tr("chat_history_sources", "Sources")}: ${src}</div>
     `;
     box.appendChild(item);
   });
@@ -143,17 +155,20 @@ async function checkSession() {
   }
 
   if (!currentUser) {
-    setStatus("Не авторизован. Нажмите \"Зайти\" в шапке.");
+    setStatus(tr("suggestions_desc_2", "Not authorized. Click \"Login\" in the header."));
     return null;
   }
 
-  setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
+  setStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+    username: currentUser.username,
+    role: currentUser.role,
+  }));
   return currentUser;
 }
 
 async function loadHistory(reset = true) {
   if (!currentUser) {
-    document.getElementById("chatHistory").innerHTML = "Войдите, чтобы увидеть историю";
+    document.getElementById("chatHistory").innerHTML = tr("chat_history_login_needed", "Sign in to view history");
     document.getElementById("chatHistoryMeta").textContent = "";
     return;
   }
@@ -168,7 +183,7 @@ async function loadHistory(reset = true) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    document.getElementById("chatHistory").innerHTML = `Ошибка истории: ${payload.detail || response.status}`;
+    document.getElementById("chatHistory").innerHTML = `${tr("chat_history_error_prefix", "History error:")} ${payload.detail || response.status}`;
     return;
   }
 
@@ -179,8 +194,11 @@ async function loadHistory(reset = true) {
   historyOffset += items.length;
   const backend = payload.storage_backend || "unknown";
   const hasMore = Boolean(payload.has_more);
-  document.getElementById("chatHistoryMeta").textContent =
-    `history: ${historyOffset}/${payload.total || 0}, backend: ${backend}`;
+  document.getElementById("chatHistoryMeta").textContent = tf(
+    "chat_meta_template",
+    "history: {loaded}/{total}, backend: {backend}",
+    { loaded: historyOffset, total: payload.total || 0, backend }
+  );
 
   const loadMoreBtn = document.getElementById("loadMoreHistoryBtn");
   loadMoreBtn.disabled = !hasMore;
@@ -192,7 +210,7 @@ async function sendMessage() {
   if (!query) return;
 
   if (!currentUser) {
-    setStatus("Сначала войдите в аккаунт");
+    setStatus(tr("chat_login_first", "Please sign in first"));
     return;
   }
 
@@ -212,7 +230,7 @@ async function sendMessage() {
   }
 
   const payload = await response.json();
-  addMessage("assistant", payload.answer || "Пустой ответ");
+  addMessage("assistant", payload.answer || tr("chat_empty_answer", "Empty response"));
   addSources(payload.citations || [], payload.sources || []);
   await loadHistory(true);
 }
@@ -234,14 +252,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     historyOffset = 0;
 
     if (currentUser) {
-      setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
+      setStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+        username: currentUser.username,
+        role: currentUser.role,
+      }));
       await loadHistory(true);
       return;
     }
 
-    setStatus("Не авторизован. Нажмите \"Зайти\" в шапке.");
+    setStatus(tr("suggestions_desc_2", "Not authorized. Click \"Login\" in the header."));
     document.getElementById("chatHistory").innerHTML = "";
     document.getElementById("chatHistoryMeta").textContent = "";
+  });
+
+  window.addEventListener("site-language-changed", async () => {
+    await loadHistory(true);
+    if (!currentUser) {
+      setStatus(tr("suggestions_desc_2", "Not authorized. Click \"Login\" in the header."));
+    } else {
+      setStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+        username: currentUser.username,
+        role: currentUser.role,
+      }));
+    }
   });
 
   await checkSession();

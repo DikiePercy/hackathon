@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy import or_
@@ -85,6 +86,54 @@ def _normalize_card_payload(card_data: PersonCardCreate) -> dict:
     payload["charge"] = payload.get("charge") or "Unknown"
     payload["description"] = payload.get("description") or ""
     return payload
+
+
+def _import_seed_rows(items: List[SeedPersonCard], db: Session) -> dict:
+    created = 0
+    skipped_duplicates = 0
+    seen_keys = set()
+
+    for item in items:
+        key = ((item.full_name or "").strip().lower(), item.birth_year or 1900)
+        if key in seen_keys:
+            skipped_duplicates += 1
+            continue
+
+        duplicate = db.query(PersonCard).filter(
+            PersonCard.name.ilike(item.full_name),
+            PersonCard.birth_year == (item.birth_year or 1900)
+        ).first()
+        if duplicate:
+            skipped_duplicates += 1
+            continue
+
+        db.add(PersonCard(
+            name=item.full_name,
+            birth_year=item.birth_year or 1900,
+            death_year=item.death_year,
+            nationality=item.nationality,
+            region=item.region or "Unknown",
+            district=item.district,
+            category=item.occupation,
+            charge=item.charge or "Unknown",
+            sentence=item.sentence,
+            arrest_date=item.arrest_date,
+            sentence_date=item.sentence_date,
+            rehabilitation_date=item.rehabilitation_date,
+            description=item.biography or "",
+            source=item.source,
+            status=item.status,
+            lat=None,
+            lon=None,
+        ))
+        seen_keys.add(key)
+        created += 1
+
+    return {
+        "created": created,
+        "skipped_duplicates": skipped_duplicates,
+        "total": len(items),
+    }
 
 
 def _to_public_person(card: PersonCard) -> dict:
@@ -349,51 +398,53 @@ def import_seed_cards(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    created = 0
-    skipped_duplicates = 0
-    seen_keys = set()
+    result = _import_seed_rows(cards_data, db)
+    db.commit()
+    return result
 
-    for item in cards_data:
-        key = (item.full_name.strip().lower(), item.birth_year)
-        if key in seen_keys:
-            skipped_duplicates += 1
+
+@router.post("/cards/import/seed/examples")
+def import_seed_examples(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    root = Path(__file__).resolve().parents[2]
+    candidate_files = [
+        root / "asset" / "seed.json",
+        root / "asset" / "test_data" / "seed.json",
+    ]
+
+    processed_files = []
+    aggregate = {
+        "created": 0,
+        "skipped_duplicates": 0,
+        "total": 0,
+    }
+
+    for seed_path in candidate_files:
+        if not seed_path.exists():
             continue
 
-        duplicate = db.query(PersonCard).filter(
-            PersonCard.name.ilike(item.full_name),
-            PersonCard.birth_year == item.birth_year
-        ).first()
-        if duplicate:
-            skipped_duplicates += 1
-            continue
+        with seed_path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
 
-        db.add(PersonCard(
-            name=item.full_name,
-            birth_year=item.birth_year or 1900,
-            death_year=item.death_year,
-            nationality=item.nationality,
-            region=item.region,
-            district=item.district,
-            category=item.occupation,
-            charge=item.charge,
-            sentence=item.sentence,
-            arrest_date=item.arrest_date,
-            sentence_date=item.sentence_date,
-            rehabilitation_date=item.rehabilitation_date,
-            description=item.biography,
-            source=item.source,
-            status=item.status,
-            lat=None,
-            lon=None,
-        ))
-        seen_keys.add(key)
-        created += 1
+        if not isinstance(raw, list):
+            raise HTTPException(status_code=400, detail=f"Expected JSON array in {seed_path}")
+
+        items = [SeedPersonCard(**item) for item in raw]
+        result = _import_seed_rows(items, db)
+        aggregate["created"] += result["created"]
+        aggregate["skipped_duplicates"] += result["skipped_duplicates"]
+        aggregate["total"] += result["total"]
+        processed_files.append(str(seed_path.relative_to(root)))
+
+    if not processed_files:
+        raise HTTPException(status_code=404, detail="No bundled seed files found")
 
     db.commit()
     return {
-        "created": created,
-        "skipped_duplicates": skipped_duplicates,
-        "total": len(cards_data)
+        **aggregate,
+        "files": processed_files,
     }
 
 

@@ -1,5 +1,17 @@
 let siteCurrentUser = null;
 
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
+function tf(key, fallback, vars = {}) {
+  let text = tr(key, fallback);
+  Object.entries(vars).forEach(([name, value]) => {
+    text = text.replaceAll(`{${name}}`, String(value ?? ""));
+  });
+  return text;
+}
+
 function resolveAuthApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("api");
@@ -67,7 +79,7 @@ async function refreshSiteSession() {
   const response = await authFetch("/me");
   if (!response.ok) {
     siteCurrentUser = null;
-    setGlobalAuthStatus("Не авторизован");
+    setGlobalAuthStatus(tr("auth_not_authorized", "Not authorized"));
     normalizeHeaderNav();
     updateGlobalAuthControls();
     emitAuthChange();
@@ -75,7 +87,10 @@ async function refreshSiteSession() {
   }
 
   siteCurrentUser = await response.json();
-  setGlobalAuthStatus(`Вход выполнен: ${siteCurrentUser.username} (${siteCurrentUser.role})`);
+  setGlobalAuthStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+    username: siteCurrentUser.username,
+    role: siteCurrentUser.role,
+  }));
   normalizeHeaderNav();
   updateGlobalAuthControls();
   emitAuthChange();
@@ -86,7 +101,7 @@ async function registerSiteUser() {
   const username = (document.getElementById("globalAuthUser")?.value || "").trim();
   const password = (document.getElementById("globalAuthPass")?.value || "").trim();
   if (!username || !password) {
-    setGlobalAuthStatus("Введите логин и пароль");
+    setGlobalAuthStatus(tr("auth_need_credentials", "Enter username and password"));
     return;
   }
 
@@ -98,18 +113,18 @@ async function registerSiteUser() {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    setGlobalAuthStatus(`Ошибка регистрации: ${payload.detail || response.status}`);
+    setGlobalAuthStatus(`Error: ${payload.detail || response.status}`);
     return;
   }
 
-  setGlobalAuthStatus("Регистрация успешна. Теперь войдите.");
+  setGlobalAuthStatus(tr("auth_register_success", "Registration successful. Please sign in."));
 }
 
 async function loginSiteUser() {
   const username = (document.getElementById("globalAuthUser")?.value || "").trim();
   const password = (document.getElementById("globalAuthPass")?.value || "").trim();
   if (!username || !password) {
-    setGlobalAuthStatus("Введите логин и пароль");
+    setGlobalAuthStatus(tr("auth_need_credentials", "Enter username and password"));
     return;
   }
 
@@ -125,7 +140,7 @@ async function loginSiteUser() {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    setGlobalAuthStatus(`Ошибка входа: ${payload.detail || response.status}`);
+    setGlobalAuthStatus(`Error: ${payload.detail || response.status}`);
     return;
   }
 
@@ -136,7 +151,7 @@ async function loginSiteUser() {
 async function logoutSiteUser() {
   await authFetch("/logout", { method: "POST" });
   siteCurrentUser = null;
-  setGlobalAuthStatus("Вы вышли");
+  setGlobalAuthStatus(tr("status_logged_out", "You have signed out"));
   normalizeHeaderNav();
   updateGlobalAuthControls();
   emitAuthChange();
@@ -147,13 +162,13 @@ function normalizeHeaderNav() {
   if (!nav) return;
 
   const links = [
-    { href: "index.html", label: "Главная" },
-    { href: "list.html", label: "База данных" },
-    { href: "about.html", label: "О проекте" },
-    { href: "contacts.html", label: "Контакты" },
-    { href: "chat.html", label: "Чат AI" },
-    { href: "suggestions.html", label: "Предложить запись" },
-    { href: "admin.html", label: "Админ", adminOnly: true }
+    { href: "index.html", label: tr("nav_main", "Home") },
+    { href: "list.html", label: tr("nav_db", "Database") },
+    { href: "about.html", label: tr("nav_about", "About") },
+    { href: "contacts.html", label: tr("nav_contacts", "Contacts") },
+    { href: "chat.html", label: tr("nav_chat", "AI Chat") },
+    { href: "suggestions.html", label: tr("nav_suggestions", "Submit Entry") },
+    { href: "admin.html", label: tr("nav_admin", "Admin"), adminOnly: true }
   ];
 
   const page = window.location.pathname.split("/").pop() || "index.html";
@@ -173,8 +188,8 @@ function ensureHeaderSearchBar() {
   const search = document.createElement("div");
   search.className = "search-bar";
   search.innerHTML = `
-    <input type="text" placeholder="Поиск по имени, фамилии, году..." id="searchInput">
-    <button type="button" id="searchBtn">Найти</button>
+    <input type="text" placeholder="${tr("search_placeholder", "Search by name, surname, year...")}" id="searchInput">
+    <button type="button" id="searchBtn">${tr("search_btn", "Search")}</button>
   `;
 
   const nav = headerInner.querySelector(".header-nav");
@@ -192,8 +207,8 @@ function ensureHeaderAuthControls() {
   const controls = document.createElement("div");
   controls.className = "global-auth-controls";
   controls.innerHTML = `
-    <button id="globalLoginOpenBtn" type="button">Зайти</button>
-    <button id="globalLogoutBtn" type="button" hidden>Выйти</button>
+    <button id="globalLoginOpenBtn" type="button">${tr("auth_login_btn", "Sign in")}</button>
+    <button id="globalLogoutBtn" type="button" hidden>${tr("btn_logout", "Logout")}</button>
   `;
   headerInner.appendChild(controls);
 }
@@ -208,18 +223,18 @@ function ensureGlobalAuthModal() {
   modal.innerHTML = `
     <div class="global-auth-dialog" role="dialog" aria-modal="true" aria-labelledby="globalAuthTitle">
       <div class="global-auth-header">
-        <h3 id="globalAuthTitle">Вход в аккаунт</h3>
+        <h3 id="globalAuthTitle">${tr("auth_title", "Sign in")}</h3>
         <button id="globalAuthCloseBtn" type="button" class="global-auth-close" aria-label="Закрыть">x</button>
       </div>
       <div class="global-auth-fields">
-        <input id="globalAuthUser" type="text" placeholder="Логин" autocomplete="username">
-        <input id="globalAuthPass" type="password" placeholder="Пароль" autocomplete="current-password">
+        <input id="globalAuthUser" type="text" placeholder="${tr("auth_username_placeholder", "Username")}" autocomplete="username">
+        <input id="globalAuthPass" type="password" placeholder="${tr("auth_password_placeholder", "Password")}" autocomplete="current-password">
       </div>
       <div class="global-auth-actions">
-        <button id="globalAuthRegisterBtn" type="button">Регистрация</button>
-        <button id="globalAuthLoginBtn" type="button">Войти</button>
+        <button id="globalAuthRegisterBtn" type="button">${tr("btn_register", "Register")}</button>
+        <button id="globalAuthLoginBtn" type="button">${tr("btn_login", "Login")}</button>
       </div>
-      <p id="globalAuthStatus">Не авторизован</p>
+      <p id="globalAuthStatus">${tr("auth_not_authorized", "Not authorized")}</p>
     </div>
   `;
 
@@ -301,4 +316,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupGlobalAuthEvents();
   setupGlobalSearch();
   await refreshSiteSession();
+
+  window.addEventListener("site-language-changed", () => {
+    normalizeHeaderNav();
+    ensureHeaderSearchBar();
+    ensureHeaderAuthControls();
+    if (!siteCurrentUser) {
+      setGlobalAuthStatus(tr("auth_not_authorized", "Not authorized"));
+    } else {
+      setGlobalAuthStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+        username: siteCurrentUser.username,
+        role: siteCurrentUser.role,
+      }));
+    }
+  });
 });

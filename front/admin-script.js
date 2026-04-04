@@ -10,6 +10,18 @@ function resolveApiBase() {
 const ADMIN_API_BASE = resolveApiBase();
 let currentAdmin = null;
 
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
+function tf(key, fallback, vars = {}) {
+  let text = tr(key, fallback);
+  Object.entries(vars).forEach(([name, value]) => {
+    text = text.replaceAll(`{${name}}`, String(value ?? ""));
+  });
+  return text;
+}
+
 function apiUrl(path) {
   return ADMIN_API_BASE ? `${ADMIN_API_BASE}${path}` : path;
 }
@@ -58,32 +70,32 @@ async function checkSession() {
   if (!me) {
     currentAdmin = null;
     setAdminProtectedVisible(false);
-    setAdminStatus("Сессия не активна. Нажмите \"Зайти как админ\".");
+    setAdminStatus(tr("admin_session_inactive", "Session inactive. Click \"Login as admin\"."));
     return null;
   }
 
   if (me.role !== "admin") {
     currentAdmin = me;
     setAdminProtectedVisible(false);
-    setAdminStatus(`Вход как ${me.username}, но роль не admin`);
+    setAdminStatus(tf("admin_login_not_admin", "Signed in as {username}, but role is not admin", { username: me.username }));
     return me;
   }
 
   currentAdmin = me;
   setAdminProtectedVisible(true);
-  setAdminStatus(`Авторизован как admin: ${me.username}`);
+  setAdminStatus(tf("admin_logged_admin", "Signed in as admin: {username}", { username: me.username }));
   return me;
 }
 
 async function createCard() {
   if (!currentAdmin || currentAdmin.role !== "admin") {
-    setAdminStatus("Нужна авторизация администратора");
+    setAdminStatus(tr("admin_need_auth", "Admin authorization is required"));
     return;
   }
 
   const name = document.getElementById("createName").value.trim();
   if (!name) {
-    setAdminStatus("Введите ФИО для создания карточки");
+    setAdminStatus(tr("admin_need_name", "Enter full name to create a card"));
     return;
   }
 
@@ -141,7 +153,7 @@ async function importSeedFile() {
   const fileInput = document.getElementById("seedFile");
   const file = fileInput.files[0];
   if (!file) {
-    setAdminStatus("Выберите JSON файл");
+    setAdminStatus(tr("admin_select_json", "Select a JSON file"));
     return;
   }
 
@@ -161,11 +173,105 @@ async function importSeedFile() {
     }
 
     const body = await response.json();
-    setAdminStatus(`Импорт завершен: создано ${body.created}, пропущено ${body.skipped_duplicates}`);
+    setAdminStatus(tf("admin_import_done", "Import complete: created {created}, skipped {skipped}", {
+      created: body.created,
+      skipped: body.skipped_duplicates,
+    }));
     await loadCards();
   } catch (err) {
     setAdminStatus(`Ошибка импорта: ${err.message}`);
   }
+}
+
+async function importBundledSeeds() {
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    setAdminStatus(tr("admin_need_auth", "Admin authorization is required"));
+    return;
+  }
+
+  const response = await apiFetch("/cards/import/seed/examples", {
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка импорта встроенных seed: ${body.detail || response.status}`);
+    return;
+  }
+
+  const body = await response.json();
+  setAdminStatus(tf("admin_bundled_import_done", "Bundled import: created {created}, skipped {skipped}, files: {files}", {
+    created: body.created,
+    skipped: body.skipped_duplicates,
+    files: (body.files || []).join(", "),
+  }));
+  await loadCards();
+}
+
+async function loadAiRuntimeConfig() {
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    setAdminStatus(tr("admin_need_auth", "Admin authorization is required"));
+    return;
+  }
+
+  const response = await apiFetch("/admin/ai/runtime-config");
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка чтения AI настроек: ${body.detail || response.status}`);
+    return;
+  }
+
+  const payload = await response.json();
+  const cfg = payload.config || {};
+
+  document.getElementById("llmProvider").value = cfg.rag_llm_provider || "gemini";
+  document.getElementById("embeddingProvider").value = cfg.rag_embedding_provider || "gemini";
+  document.getElementById("geminiModel").value = cfg.rag_gemini_model || "";
+  document.getElementById("claudeModel").value = cfg.rag_claude_model || "";
+  document.getElementById("geminiEmbeddingModel").value = cfg.rag_gemini_embedding_model || "";
+  document.getElementById("openaiEmbeddingModel").value = cfg.rag_openai_embedding_model || "";
+
+  setAdminStatus(tr("admin_ai_loaded", "AI settings loaded"));
+}
+
+async function saveAiRuntimeConfig() {
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    setAdminStatus(tr("admin_need_auth", "Admin authorization is required"));
+    return;
+  }
+
+  const payload = {
+    rag_llm_provider: document.getElementById("llmProvider").value,
+    rag_embedding_provider: document.getElementById("embeddingProvider").value,
+    rag_gemini_model: document.getElementById("geminiModel").value.trim(),
+    rag_claude_model: document.getElementById("claudeModel").value.trim(),
+    rag_gemini_embedding_model: document.getElementById("geminiEmbeddingModel").value.trim(),
+    rag_openai_embedding_model: document.getElementById("openaiEmbeddingModel").value.trim(),
+  };
+
+  const geminiKey = document.getElementById("geminiApiKey").value.trim();
+  const openaiKey = document.getElementById("openaiApiKey").value.trim();
+  const anthropicKey = document.getElementById("anthropicApiKey").value.trim();
+  if (geminiKey) payload.gemini_api_key = geminiKey;
+  if (openaiKey) payload.openai_api_key = openaiKey;
+  if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+
+  const response = await apiFetch("/admin/ai/runtime-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    setAdminStatus(`Ошибка сохранения AI настроек: ${body.detail || response.status}`);
+    return;
+  }
+
+  document.getElementById("geminiApiKey").value = "";
+  document.getElementById("openaiApiKey").value = "";
+  document.getElementById("anthropicApiKey").value = "";
+  setAdminStatus(tr("admin_ai_saved", "AI settings saved"));
 }
 
 async function deleteCard(cardId) {
@@ -186,11 +292,11 @@ async function deleteCard(cardId) {
 async function loadCards() {
   const container = document.getElementById("adminCardsList");
   if (!currentAdmin || currentAdmin.role !== "admin") {
-    container.innerHTML = "Войдите как admin для просмотра карточек";
+    container.innerHTML = tr("admin_cards_login_needed", "Login as admin to view cards");
     return;
   }
 
-  container.innerHTML = "Загрузка...";
+  container.innerHTML = tr("common_loading", "Loading...");
   const response = await apiFetch("/cards");
 
   if (!response.ok) {
@@ -201,7 +307,7 @@ async function loadCards() {
 
   const cards = await response.json();
   if (!cards.length) {
-    container.innerHTML = "Нет карточек";
+    container.innerHTML = tr("admin_no_cards", "No cards");
     return;
   }
 
@@ -213,7 +319,7 @@ async function loadCards() {
 
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.textContent = "Удалить";
+    btn.textContent = tr("common_delete", "Delete");
     btn.addEventListener("click", () => deleteCard(card.id));
 
     row.appendChild(btn);
@@ -222,7 +328,7 @@ async function loadCards() {
 }
 
 async function moderationAction(id, action) {
-  const comment = window.prompt("Комментарий модератора (необязательно):", "") || "";
+  const comment = window.prompt(tr("admin_prompt_comment", "Moderator comment (optional):"), "") || "";
   const response = await apiFetch(`/admin/suggestions/${id}/${action}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -236,7 +342,7 @@ async function moderationAction(id, action) {
   }
 
   const body = await response.json();
-  setAdminStatus(body.message || "Модерация выполнена");
+  setAdminStatus(body.message || tr("admin_moderation_done", "Moderation complete"));
   await loadSuggestions();
   await loadCards();
 }
@@ -256,7 +362,7 @@ async function loadSuggestions() {
   const container = document.getElementById("adminSuggestionsList");
   const state = document.getElementById("suggestionsStateFilter").value;
   if (!currentAdmin || currentAdmin.role !== "admin") {
-    container.innerHTML = "Войдите как admin для модерации";
+    container.innerHTML = tr("admin_suggestions_login_needed", "Login as admin for moderation");
     return;
   }
 
@@ -270,7 +376,7 @@ async function loadSuggestions() {
 
   const items = await response.json();
   if (!items.length) {
-    container.innerHTML = "Предложений нет";
+    container.innerHTML = tr("admin_no_suggestions", "No suggestions");
     return;
   }
 
@@ -292,20 +398,20 @@ async function loadSuggestions() {
     if (item.state === "pending") {
       const approveBtn = document.createElement("button");
       approveBtn.type = "button";
-      approveBtn.textContent = "Одобрить";
+      approveBtn.textContent = tr("common_approve", "Approve");
       approveBtn.addEventListener("click", () => moderationAction(item.id, "approve"));
       actions.appendChild(approveBtn);
 
       const rejectBtn = document.createElement("button");
       rejectBtn.type = "button";
-      rejectBtn.textContent = "Отклонить";
+      rejectBtn.textContent = tr("common_reject", "Reject");
       rejectBtn.addEventListener("click", () => moderationAction(item.id, "reject"));
       actions.appendChild(rejectBtn);
     }
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
-    deleteBtn.textContent = "Удалить";
+    deleteBtn.textContent = tr("common_delete", "Delete");
     deleteBtn.addEventListener("click", () => deleteSuggestion(item.id));
     actions.appendChild(deleteBtn);
 
@@ -320,15 +426,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("seedImportBtn").addEventListener("click", importSeedFile);
+  document.getElementById("seedExamplesImportBtn").addEventListener("click", importBundledSeeds);
   document.getElementById("createCardBtn").addEventListener("click", createCard);
   document.getElementById("refreshCardsBtn").addEventListener("click", loadCards);
   document.getElementById("loadSuggestionsBtn").addEventListener("click", loadSuggestions);
+  document.getElementById("loadAiConfigBtn").addEventListener("click", loadAiRuntimeConfig);
+  document.getElementById("saveAiConfigBtn").addEventListener("click", saveAiRuntimeConfig);
 
   window.addEventListener("site-auth-changed", async () => {
     const me = await checkSession();
     if (me?.role === "admin") {
       await loadCards();
       await loadSuggestions();
+      await loadAiRuntimeConfig();
       return;
     }
 
@@ -340,5 +450,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (me?.role === "admin") {
     await loadCards();
     await loadSuggestions();
+    await loadAiRuntimeConfig();
   }
+
+  window.addEventListener("site-language-changed", async () => {
+    const me2 = await checkSession();
+    if (me2?.role === "admin") {
+      await loadCards();
+      await loadSuggestions();
+    }
+  });
 });

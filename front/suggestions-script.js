@@ -2,6 +2,18 @@ let currentUser = null;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
 
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
+function tf(key, fallback, vars = {}) {
+  let text = tr(key, fallback);
+  Object.entries(vars).forEach(([name, value]) => {
+    text = text.replaceAll(`{${name}}`, String(value ?? ""));
+  });
+  return text;
+}
+
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("api");
@@ -54,16 +66,19 @@ async function checkSession() {
   }
 
   if (!currentUser) {
-    setStatus("Не авторизован. Нажмите \"Зайти\" в шапке.");
+    setStatus(tr("suggestions_desc_2", "Not authorized. Click \"Login\" in the header."));
     return;
   }
 
-  setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
+  setStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+    username: currentUser.username,
+    role: currentUser.role,
+  }));
 }
 
 async function sendSuggestion() {
   if (!currentUser) {
-    setStatus("Сначала войдите в аккаунт");
+    setStatus(tr("chat_login_first", "Please sign in first"));
     return;
   }
 
@@ -74,39 +89,39 @@ async function sendSuggestion() {
   const fullName = readText("fullName");
   const birthYear = parseYear("birthYear");
   if (suggestionKind !== "document" && (!fullName || !birthYear)) {
-    setStatus("ФИО и год рождения обязательны");
+    setStatus(tr("suggestions_required_name_year", "Full name and birth year are required"));
     return;
   }
 
   if ((suggestionKind === "update" || suggestionKind === "document") && !targetPersonId) {
-    setStatus("Для update/document укажите ID существующей записи");
+    setStatus(tr("suggestions_need_target_id", "For update/document, provide existing entry ID"));
     return;
   }
 
   const photoInput = document.getElementById("photoFile");
   const photo = photoInput?.files?.[0] || null;
   if (photo && photo.size >= MAX_IMAGE_BYTES) {
-    setStatus("Размер изображения должен быть меньше 2 МБ");
+    setStatus(tr("suggestions_image_limit", "Image size must be less than 2 MB"));
     return;
   }
 
   const documentInput = document.getElementById("documentFile");
   const documentFile = documentInput?.files?.[0] || null;
   if (documentFile && documentFile.size >= MAX_DOCUMENT_BYTES) {
-    setStatus("Размер документа должен быть меньше 3 МБ");
+    setStatus(tr("suggestions_doc_limit", "Document size must be less than 3 MB"));
     return;
   }
 
   if (documentFile) {
     const name = (documentFile.name || "").toLowerCase();
     if (!(name.endsWith(".txt") || name.endsWith(".md") || name.endsWith(".markdown"))) {
-      setStatus("Документ должен быть в формате .txt или .md");
+      setStatus(tr("suggestions_doc_format", "Document must be in .txt or .md format"));
       return;
     }
   }
 
   if (suggestionKind === "document" && !documentText && !documentFile) {
-    setStatus("Для document-режима добавьте текст или файл .txt/.md");
+    setStatus(tr("suggestions_doc_required", "For document mode, add text or a .txt/.md file"));
     return;
   }
 
@@ -150,7 +165,10 @@ async function sendSuggestion() {
   }
 
   const created = await response.json();
-  setStatus(`Предложение отправлено: #${created.id} (${created.suggestion_kind})`);
+  setStatus(tf("suggestions_sent", "Suggestion sent: #{id} ({kind})", {
+    id: created.id,
+    kind: created.suggestion_kind,
+  }));
   if (photoInput) {
     photoInput.value = "";
   }
@@ -164,19 +182,19 @@ async function findExistingPerson() {
   const query = readText("existingSearch");
   const resultEl = document.getElementById("existingSearchResult");
   if (!query) {
-    resultEl.textContent = "Введите текст для поиска записи";
+    resultEl.textContent = tr("suggestions_search_enter", "Enter text to search entries");
     return;
   }
 
   const response = await apiFetch(`/api/persons/search?q=${encodeURIComponent(query)}&limit=5`);
   if (!response.ok) {
-    resultEl.textContent = "Не удалось выполнить поиск";
+    resultEl.textContent = tr("suggestions_search_failed", "Search failed");
     return;
   }
 
   const items = await response.json();
   if (!items.length) {
-    resultEl.textContent = "Ничего не найдено";
+    resultEl.textContent = tr("suggestions_search_empty", "Nothing found");
     return;
   }
 
@@ -184,12 +202,15 @@ async function findExistingPerson() {
   document.getElementById("targetPersonId").value = String(first.id);
   document.getElementById("fullName").value = first.full_name || "";
   document.getElementById("birthYear").value = String(first.birth_year || "");
-  resultEl.textContent = `Найдено: ${first.full_name} (#${first.id}). ID подставлен.`;
+  resultEl.textContent = tf("suggestions_search_found", "Found: {name} (#{id}). ID was applied.", {
+    name: first.full_name,
+    id: first.id,
+  });
 }
 
 async function loadMySuggestions() {
   if (!currentUser) {
-    document.getElementById("mySuggestionsList").innerHTML = "Войдите для просмотра";
+    document.getElementById("mySuggestionsList").innerHTML = tr("suggestions_login_to_view", "Sign in to view");
     return;
   }
 
@@ -203,7 +224,7 @@ async function loadMySuggestions() {
   const items = await response.json();
   const container = document.getElementById("mySuggestionsList");
   if (!items.length) {
-    container.innerHTML = "Пока нет предложений";
+    container.innerHTML = tr("suggestions_no_items", "No suggestions yet");
     return;
   }
 
@@ -226,13 +247,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.addEventListener("site-auth-changed", async (event) => {
     currentUser = event.detail?.user || null;
     if (currentUser) {
-      setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
+      setStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+        username: currentUser.username,
+        role: currentUser.role,
+      }));
       await loadMySuggestions();
       return;
     }
 
-    setStatus("Не авторизован. Нажмите \"Зайти\" в шапке.");
+    setStatus(tr("suggestions_desc_2", "Not authorized. Click \"Login\" in the header."));
     document.getElementById("mySuggestionsList").innerHTML = "";
+  });
+
+  window.addEventListener("site-language-changed", async () => {
+    if (!currentUser) {
+      setStatus(tr("suggestions_desc_2", "Not authorized. Click \"Login\" in the header."));
+      return;
+    }
+    setStatus(tf("auth_logged_in_as", "Logged in: {username} ({role})", {
+      username: currentUser.username,
+      role: currentUser.role,
+    }));
+    await loadMySuggestions();
   });
 
   await checkSession();

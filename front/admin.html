@@ -41,6 +41,36 @@
           <input id="seedFile" type="file" accept="application/json,.json">
           <div class="admin-actions">
             <button id="seedImportBtn" type="button">Импортировать seed</button>
+            <button id="seedExamplesImportBtn" type="button">Импортировать встроенные seed</button>
+          </div>
+        </div>
+
+        <div class="admin-panel admin-protected" hidden>
+          <h3>Настройки AI токенов и провайдеров</h3>
+          <div class="admin-form-grid">
+            <label for="llmProvider">LLM провайдер</label>
+            <select id="llmProvider">
+              <option value="gemini">gemini</option>
+              <option value="claude">claude</option>
+            </select>
+
+            <label for="embeddingProvider">Embedding провайдер</label>
+            <select id="embeddingProvider">
+              <option value="gemini">gemini</option>
+              <option value="openai">openai</option>
+            </select>
+
+            <input id="geminiApiKey" type="password" placeholder="GEMINI_API_KEY">
+            <input id="openaiApiKey" type="password" placeholder="OPENAI_API_KEY">
+            <input id="anthropicApiKey" type="password" placeholder="ANTHROPIC_API_KEY">
+            <input id="geminiModel" type="text" placeholder="RAG_GEMINI_MODEL">
+            <input id="claudeModel" type="text" placeholder="RAG_CLAUDE_MODEL">
+            <input id="geminiEmbeddingModel" type="text" placeholder="RAG_GEMINI_EMBEDDING_MODEL">
+            <input id="openaiEmbeddingModel" type="text" placeholder="RAG_OPENAI_EMBEDDING_MODEL">
+          </div>
+          <div class="admin-actions">
+            <button id="loadAiConfigBtn" type="button">Обновить значения</button>
+            <button id="saveAiConfigBtn" type="button">Сохранить AI настройки</button>
           </div>
         </div>
 
@@ -97,6 +127,7 @@
     <p>&copy; 2024 Архив Памяти</p>
   </footer>
 
+  <script src="i18n.js"></script>
   <script src="header-auth.js"></script>
   <script src="admin-script.js"></script>
 </body>

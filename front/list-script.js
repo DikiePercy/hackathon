@@ -1,6 +1,10 @@
 const CYRILLIC = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ".split("");
 let allPeople = [];
 
+function tr(key, fallback) {
+  return window.AppI18n?.t?.(key) || fallback;
+}
+
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("api");
@@ -120,7 +124,7 @@ function applyFilters() {
   const filtered = allPeople.filter((p) => {
     const text = `${p.name} ${p.region} ${p.district} ${p.occupation} ${p.charge}`.toLowerCase();
     const byQuery = !query || text.includes(query);
-    const byRegion = !region || (p.region || "").toLowerCase().includes(region);
+    const byRegion = !region || (p.region || "").toLowerCase() === region;
     const byYear = !year || String(p.birth_year || "") === year || String(p.death_year || "") === year;
     return byQuery && byRegion && byYear;
   });
@@ -140,14 +144,21 @@ function fillRegionFilter() {
     }
   });
 
-  const values = Array.from(existing).sort((a, b) => a.localeCompare(b, "ru"));
-  select.innerHTML = "<option value=''>Все регионы</option>";
+  const values = Array.from(existing)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ru"));
+  const selected = (select.value || "").trim();
+  select.innerHTML = `<option value=''>${tr("filter_all_regions", "All regions")}</option>`;
   values.forEach((region) => {
     const option = document.createElement("option");
     option.value = region;
     option.textContent = region;
     select.appendChild(option);
   });
+  if (selected && values.includes(selected)) {
+    select.value = selected;
+  }
 }
 
 function fillYearFilter() {
@@ -159,14 +170,18 @@ function fillYearFilter() {
     if (p.death_year) existing.add(String(p.death_year));
   });
 
-  const values = Array.from(existing).sort();
-  select.innerHTML = "<option value=''>Все годы</option>";
+  const values = Array.from(existing).sort((a, b) => Number(a) - Number(b));
+  const selected = (select.value || "").trim();
+  select.innerHTML = `<option value=''>${tr("filter_all_years", "All years")}</option>`;
   values.forEach((year) => {
     const option = document.createElement("option");
     option.value = year;
     option.textContent = year;
     select.appendChild(option);
   });
+  if (selected && values.includes(selected)) {
+    select.value = selected;
+  }
 }
 
 function setupSearch() {
@@ -215,7 +230,7 @@ async function loadStats() {
 
 function showError(message) {
   const container = document.getElementById("registryList");
-  container.innerHTML = `<div class='letter-empty'>Ошибка загрузки списка: ${message}</div>`;
+  container.innerHTML = `<div class='letter-empty'>${tr("list_error_prefix", "Failed to load list:")} ${message}</div>`;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -230,4 +245,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     showError(err.message);
   }
+
+  window.addEventListener("site-language-changed", () => {
+    fillRegionFilter();
+    fillYearFilter();
+    applyFilters();
+  });
 });
