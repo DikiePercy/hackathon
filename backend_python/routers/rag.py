@@ -323,7 +323,6 @@ async def chat(
     ]
 
     try:
-        from routers.rag import _save_chat_history
         _save_chat_history(db, 1, query, answer, [person_id or 1]) # Хардкодим ID юзера для хакатона
     except Exception:
         pass
