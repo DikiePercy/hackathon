@@ -314,7 +314,24 @@ def search_documents_ranked(
     }
 
 
-def generate_answer(query: str, context_docs: List[str], language: str = "") -> str:
+def _format_recent_history(chat_history: List[Dict[str, str]]) -> str:
+    lines: List[str] = []
+    for idx, item in enumerate(chat_history, start=1):
+        user_text = (item.get("user_message") or "").strip()
+        bot_text = (item.get("bot_response") or "").strip()
+        if not user_text and not bot_text:
+            continue
+        lines.append(f"{idx}. Пользователь: {user_text}")
+        lines.append(f"   Ассистент: {bot_text}")
+    return "\n".join(lines)
+
+
+def generate_answer(
+    query: str,
+    context_docs: List[str],
+    language: str = "",
+    chat_history: List[Dict[str, str]] | None = None,
+) -> str:
     """Generate a strict context-only answer for a user query."""
     llm = _get_llm()
 
@@ -330,7 +347,13 @@ def generate_answer(query: str, context_docs: List[str], language: str = "") -> 
         "'Недостаточно данных в контексте'. "
         "Пиши кратко и по существу."
     )
-    user_prompt = f"Контекст:\n{context}\n\nВопрос: {query}"
+    history_block = ""
+    if chat_history:
+        rendered_history = _format_recent_history(chat_history)
+        if rendered_history:
+            history_block = f"История диалога (последние сообщения):\n{rendered_history}\n\n"
+
+    user_prompt = f"{history_block}Контекст:\n{context}\n\nВопрос: {query}"
 
     try:
         response = llm.invoke(
@@ -351,6 +374,7 @@ def answer_with_rag(
     candidate_k: int = 16,
     min_score: float = 0.2,
     person_id: int | None = None,
+    chat_history: List[Dict[str, str]] | None = None,
 ) -> Dict[str, Any]:
     """Full RAG pipeline: retrieve ranked context, answer, and return sources + citations."""
     search_result = search_documents_ranked(
@@ -371,7 +395,7 @@ def answer_with_rag(
             "citations": [],
         }
 
-    answer = generate_answer(query=query, context_docs=docs)
+    answer = generate_answer(query=query, context_docs=docs, chat_history=chat_history)
 
     sources: List[int] = []
     citations: List[dict] = []

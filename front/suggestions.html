@@ -27,53 +27,53 @@
   <div class="main-wrapper page-wide">
     <main class="content">
       <section class="biography-section">
-        <h2>Экран предложений</h2>
-        <p>Обычный пользователь может отправить предложение. После модерации администратором запись появится в базе.</p>
-        <p id="suggestAuthStatus" class="chat-helper">Не авторизован. Нажмите "Зайти" в шапке.</p>
+        <h2 data-i18n="suggestions_title">Экран предложений</h2>
+        <p data-i18n="suggestions_desc_1">Обычный пользователь может отправить предложение. После модерации администратором запись появится в базе.</p>
+        <p id="suggestAuthStatus" class="chat-helper" data-i18n="suggestions_desc_2">Не авторизован. Нажмите "Зайти" в шапке.</p>
 
         <div class="admin-panel">
-          <h3>Новая предложка</h3>
+          <h3 data-i18n="suggestions_new">Новая предложка</h3>
           <div class="admin-form-grid">
             <select id="suggestionKind">
-              <option value="create" selected>Новая запись</option>
-              <option value="update">Изменение существующей записи</option>
-              <option value="document">Документ к существующей записи</option>
+              <option value="create" selected data-i18n="suggestions_kind_create">Новая запись</option>
+              <option value="update" data-i18n="suggestions_kind_update">Изменение существующей записи</option>
+              <option value="document" data-i18n="suggestions_kind_document">Документ к существующей записи</option>
             </select>
-            <input id="targetPersonId" type="number" placeholder="ID существующей записи (для update)">
-            <input id="existingSearch" type="text" placeholder="Быстрый поиск существующей записи">
-            <button id="findExistingBtn" type="button">Найти ID</button>
-            <input id="fullName" type="text" placeholder="ФИО *">
-            <input id="birthYear" type="number" placeholder="Год рождения *">
-            <input id="deathYear" type="number" placeholder="Год смерти">
-            <input id="nationality" type="text" placeholder="Национальность">
-            <input id="region" type="text" placeholder="Регион">
-            <input id="district" type="text" placeholder="Район">
-            <input id="occupation" type="text" placeholder="Профессия / должность">
-            <input id="charge" type="text" placeholder="Обвинение">
-            <input id="sentence" type="text" placeholder="Приговор">
-            <input id="arrestDate" type="date" placeholder="Дата ареста">
-            <input id="sentenceDate" type="date" placeholder="Дата приговора">
-            <input id="rehabilitationDate" type="date" placeholder="Дата реабилитации">
-            <input id="source" type="text" placeholder="Источник">
-            <input id="status" type="text" placeholder="Статус (например, verified)">
+            <input id="targetPersonId" type="number" data-i18n="ph_target_person_id" placeholder="ID существующей записи (для update)">
+            <input id="existingSearch" type="text" data-i18n="ph_existing_search" placeholder="Быстрый поиск существующей записи">
+            <button id="findExistingBtn" type="button" data-i18n="suggestions_find_id">Найти ID</button>
+            <input id="fullName" type="text" data-i18n="ph_full_name_required" placeholder="ФИО *">
+            <input id="birthYear" type="number" data-i18n="ph_birth_year_required" placeholder="Год рождения *">
+            <input id="deathYear" type="number" data-i18n="ph_death_year" placeholder="Год смерти">
+            <input id="nationality" type="text" data-i18n="ph_nationality" placeholder="Национальность">
+            <input id="region" type="text" data-i18n="ph_region" placeholder="Регион">
+            <input id="district" type="text" data-i18n="ph_district" placeholder="Район">
+            <input id="occupation" type="text" data-i18n="ph_occupation" placeholder="Профессия / должность">
+            <input id="charge" type="text" data-i18n="ph_charge" placeholder="Обвинение">
+            <input id="sentence" type="text" data-i18n="ph_sentence" placeholder="Приговор">
+            <input id="arrestDate" type="date" data-i18n="ph_arrest_date" placeholder="Дата ареста">
+            <input id="sentenceDate" type="date" data-i18n="ph_sentence_date" placeholder="Дата приговора">
+            <input id="rehabilitationDate" type="date" data-i18n="ph_rehabilitation_date" placeholder="Дата реабилитации">
+            <input id="source" type="text" data-i18n="ph_source" placeholder="Источник">
+            <input id="status" type="text" data-i18n="ph_status_verified" placeholder="Статус (например, verified)">
             <input id="photoFile" type="file" accept="image/*">
           </div>
-          <p class="chat-helper">Фото необязательно. Ограничение размера: меньше 2 МБ.</p>
-          <h4>Документ к записи (необязательно)</h4>
-          <p class="chat-helper">Для режима "Документ" укажите ID существующей записи и добавьте текст или файл .txt/.md.</p>
-          <textarea id="documentText" rows="6" placeholder="Текст документа (или вставьте markdown)"></textarea>
+          <p class="chat-helper" data-i18n="suggestions_photo_tip">Фото необязательно. Ограничение размера: меньше 2 МБ.</p>
+          <h4 data-i18n="suggestions_document_title">Документ к записи (необязательно)</h4>
+          <p class="chat-helper" data-i18n="suggestions_document_tip">Для режима "Документ" укажите ID существующей записи и добавьте текст или файл .txt/.md.</p>
+          <textarea id="documentText" rows="6" data-i18n="ph_document_text" placeholder="Текст документа (или вставьте markdown)"></textarea>
           <input id="documentFile" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown">
           <div id="existingSearchResult" class="chat-helper"></div>
-          <textarea id="biography" rows="7" placeholder="Биография"></textarea>
+          <textarea id="biography" rows="7" data-i18n="ph_biography" placeholder="Биография"></textarea>
           <div class="admin-actions">
-            <button id="sendSuggestionBtn" type="button">Отправить предложение</button>
+            <button id="sendSuggestionBtn" type="button" data-i18n="suggestions_send">Отправить предложение</button>
           </div>
         </div>
 
         <div class="admin-panel">
-          <h3>Мои предложения</h3>
+          <h3 data-i18n="suggestions_my">Мои предложения</h3>
           <div class="admin-actions">
-            <button id="loadMySuggestionsBtn" type="button">Обновить</button>
+            <button id="loadMySuggestionsBtn" type="button" data-i18n="suggestions_refresh">Обновить</button>
           </div>
           <div id="mySuggestionsList" class="admin-cards-list"></div>
         </div>

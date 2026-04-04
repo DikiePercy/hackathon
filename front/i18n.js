@@ -81,6 +81,8 @@ const translations = {
         admin_import_btn: "Импортировать seed",
         admin_import_examples_btn: "Импортировать встроенные seed",
         admin_ai_settings_title: "Настройки AI токенов и провайдеров",
+        admin_llm_provider_label: "LLM провайдер",
+        admin_embedding_provider_label: "Embedding провайдер",
         admin_ai_load_btn: "Обновить значения",
         admin_ai_save_btn: "Сохранить AI настройки",
         admin_create_title: "Добавить карточку вручную",
@@ -94,6 +96,7 @@ const translations = {
         admin_filter_all: "Все",
         admin_load_suggestions: "Загрузить предложения",
         contacts_title: "Контакты",
+        contacts_email_label: "Email:",
         contacts_phone: "Телефон:",
         contacts_address: "Адрес:",
         contacts_desc: "Для вопросов по данным и доступу к API пишите на email.",
@@ -266,6 +269,8 @@ const translations = {
         admin_import_btn: "seed импорттоо",
         admin_import_examples_btn: "Камтылган seed импорттоо",
         admin_ai_settings_title: "AI токендери жана провайдерлеринин жөндөөлөрү",
+        admin_llm_provider_label: "LLM провайдери",
+        admin_embedding_provider_label: "Embedding провайдери",
         admin_ai_load_btn: "Маанилерди жаңыртуу",
         admin_ai_save_btn: "AI жөндөөлөрүн сактоо",
         admin_create_title: "Карточканы кол менен кошуу",
@@ -279,6 +284,7 @@ const translations = {
         admin_filter_all: "Баары",
         admin_load_suggestions: "Сунуштарды жүктөө",
         contacts_title: "Байланыш",
+        contacts_email_label: "Email:",
         contacts_phone: "Телефон:",
         contacts_address: "Дарек:",
         contacts_desc: "Маалымат жана API жеткиликтүүлүгү боюнча суроолор үчүн email'ге жазыңыз.",
@@ -451,6 +457,8 @@ const translations = {
         admin_import_btn: "Import seed",
         admin_import_examples_btn: "Import bundled seeds",
         admin_ai_settings_title: "AI tokens and providers settings",
+        admin_llm_provider_label: "LLM provider",
+        admin_embedding_provider_label: "Embedding provider",
         admin_ai_load_btn: "Reload values",
         admin_ai_save_btn: "Save AI settings",
         admin_create_title: "Add card manually",
@@ -464,6 +472,7 @@ const translations = {
         admin_filter_all: "All",
         admin_load_suggestions: "Load suggestions",
         contacts_title: "Contacts",
+        contacts_email_label: "Email:",
         contacts_phone: "Phone:",
         contacts_address: "Address:",
         contacts_desc: "For data and API access questions, please contact us by email.",
@@ -636,6 +645,8 @@ const translations = {
         admin_import_btn: "Seed içe aktar",
         admin_import_examples_btn: "Yerleşik seed verilerini içe aktar",
         admin_ai_settings_title: "AI token ve sağlayıcı ayarları",
+        admin_llm_provider_label: "LLM sağlayıcısı",
+        admin_embedding_provider_label: "Embedding sağlayıcısı",
         admin_ai_load_btn: "Değerleri yenile",
         admin_ai_save_btn: "AI ayarlarını kaydet",
         admin_create_title: "Kartı elle ekle",
@@ -649,6 +660,7 @@ const translations = {
         admin_filter_all: "Tümü",
         admin_load_suggestions: "Önerileri yükle",
         contacts_title: "İletişim",
+        contacts_email_label: "E-posta:",
         contacts_phone: "Telefon:",
         contacts_address: "Adres:",
         contacts_desc: "Veri ve API erişimi soruları için lütfen e-posta ile yazın.",
@@ -895,10 +907,6 @@ const PAGE_BINDINGS = {
         { selector: ".site-footer p", key: "footer_short" }
     ],
     "contacts.html": [
-        { selector: ".biography-section h2", key: "contacts_title" },
-        { selector: ".biography-section p:nth-of-type(2) strong", key: "contacts_phone" },
-        { selector: ".biography-section p:nth-of-type(3) strong", key: "contacts_address" },
-        { selector: ".biography-section p:nth-of-type(4)", key: "contacts_desc" },
         { selector: ".site-footer p", key: "footer_short" }
     ]
 };
@@ -1037,5 +1045,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener("site-auth-changed", () => {
         applyLanguage(getCurrentLanguage());
+    });
+
+    // Ensure language stays consistent after page transitions/back-forward cache restore.
+    window.addEventListener("pageshow", () => {
+        applyLanguage(getCurrentLanguage());
+    });
+
+    // Sync language if another tab/page updates localStorage.
+    window.addEventListener("storage", (event) => {
+        if (event.key === "archive_lang") {
+            applyLanguage(getCurrentLanguage());
+        }
     });
 });

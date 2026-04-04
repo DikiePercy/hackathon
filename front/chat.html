@@ -31,32 +31,32 @@
 
   <main class="main-wrapper chat-page-layout">
     <section class="chat-container">
-      <div class="chat-header">Диалог с ИИ-ассистентом</div>
+      <div class="chat-header" data-i18n="chat_header">Диалог с ИИ-ассистентом</div>
 
       <div class="chat-history" id="chatMessages">
-        <div class="message ai">
+        <div class="message ai" data-i18n="chat_intro">
           Здравствуйте. Я ИИ-ассистент проекта «Архив памяти». Напишите имя, фамилию или место, и я помогу найти информацию по архивным базам.
         </div>
       </div>
 
       <div class="history-toolbar">
-        <label for="historyLimit" class="chat-limit-label">Лимит истории:</label>
+        <label for="historyLimit" class="chat-limit-label" data-i18n="chat_history_limit">Лимит истории:</label>
         <select id="historyLimit">
           <option value="10">10</option>
           <option value="20" selected>20</option>
           <option value="50">50</option>
         </select>
-        <button id="loadHistoryBtn" type="button">Загрузить историю</button>
-        <button id="loadMoreHistoryBtn" type="button">Еще</button>
+        <button id="loadHistoryBtn" type="button" data-i18n="chat_load_history">Загрузить историю</button>
+        <button id="loadMoreHistoryBtn" type="button" data-i18n="chat_load_more">Еще</button>
       </div>
 
-      <div id="chatStatus" class="chat-helper">Не авторизован</div>
+      <div id="chatStatus" class="chat-helper" data-i18n="chat_not_authorized">Не авторизован</div>
       <div id="chatHistoryMeta" class="chat-helper"></div>
       <div id="chatHistory" class="chat-archive"></div>
 
       <div class="chat-input-area">
-        <textarea id="chatInput" rows="2" placeholder="Введите ваш запрос здесь..." autocomplete="off"></textarea>
-        <button id="sendChatBtn" type="button">Отправить</button>
+        <textarea id="chatInput" rows="2" data-i18n="chat_input_placeholder" placeholder="Введите ваш запрос здесь..." autocomplete="off"></textarea>
+        <button id="sendChatBtn" type="button" data-i18n="chat_send">Отправить</button>
       </div>
     </section>
 

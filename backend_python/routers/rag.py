@@ -55,6 +55,30 @@ def _save_chat_history(db: Session, user_id: int, query: str, answer: str, perso
     raise RuntimeError(f"Unsupported CHAT_HISTORY_BACKEND: {CHAT_HISTORY_BACKEND}")
 
 
+def _load_recent_history_sql(db: Session, user_id: int, limit: int = 6) -> List[dict]:
+    entries = db.query(ChatHistory)\
+        .filter(ChatHistory.user_id == user_id)\
+        .order_by(ChatHistory.timestamp.desc())\
+        .limit(max(1, limit))\
+        .all()
+
+    # Reverse to keep chronological order for better conversational continuity.
+    entries = list(reversed(entries))
+    return [
+        {
+            "user_message": e.user_message or "",
+            "bot_response": e.bot_response or "",
+        }
+        for e in entries
+    ]
+
+
+def _load_recent_chat_history(db: Session, user_id: int, limit: int = 6) -> List[dict]:
+    if CHAT_HISTORY_BACKEND == "sql":
+        return _load_recent_history_sql(db, user_id, limit=limit)
+    return []
+
+
 @router.post("/upload_document")
 async def upload_document(
     file: UploadFile = File(...),
@@ -168,6 +192,7 @@ def chat(
 ):
     query = chat_request.query
     top_k = max(1, min(int(chat_request.top_k or 4), 8))
+    recent_history = _load_recent_chat_history(db, current_user.id, limit=6)
 
     try:
         rag_result = answer_with_rag(
@@ -176,6 +201,7 @@ def chat(
             candidate_k=max(10, top_k * 4),
             min_score=0.2,
             person_id=chat_request.person_id,
+            chat_history=recent_history,
         )
     except ValueError as e:
         raise HTTPException(

@@ -17,7 +17,17 @@ function resolveApiBase() {
 }
 
 const API_BASE = resolveApiBase();
-const PLACEHOLDER = "https://via.placeholder.com/250x350.png?text=Archive";
+
+function setPortraitVisible(visible) {
+  const photoWrap = document.querySelector(".profile-photo");
+  const photoEl = document.getElementById("personPhoto");
+  if (photoWrap) {
+    photoWrap.style.display = visible ? "block" : "none";
+  }
+  if (!visible && photoEl) {
+    photoEl.removeAttribute("src");
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return "-";
@@ -34,12 +44,17 @@ function renderPerson(data) {
   document.getElementById("personYears").textContent = years ? `(${years})` : "";
 
   const photoEl = document.getElementById("personPhoto");
-  photoEl.src = data.photo_url || PLACEHOLDER;
-  photoEl.onerror = () => {
-    photoEl.onerror = null;
-    photoEl.src = PLACEHOLDER;
-  };
-  photoEl.alt = "Портрет: " + data.full_name;
+  if (data.photo_url) {
+    setPortraitVisible(true);
+    photoEl.src = data.photo_url;
+    photoEl.onerror = () => {
+      photoEl.onerror = null;
+      setPortraitVisible(false);
+    };
+    photoEl.alt = "Портрет: " + data.full_name;
+  } else {
+    setPortraitVisible(false);
+  }
 
   const tbody = document.querySelector("#metaTable tbody");
   tbody.innerHTML = "";
@@ -102,9 +117,7 @@ function showNoDataState() {
   document.getElementById("personName").textContent = "Пока нет данных";
   document.getElementById("personYears").textContent = "";
 
-  const photoEl = document.getElementById("personPhoto");
-  photoEl.src = PLACEHOLDER;
-  photoEl.alt = "Портрет";
+  setPortraitVisible(false);
 
   const tbody = document.querySelector("#metaTable tbody");
   tbody.innerHTML = "";
