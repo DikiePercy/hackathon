@@ -560,6 +560,23 @@ img {
   gap: 10px;
 }
 
+.main-wrapper.page-wide .admin-form-grid.suggestions-form-vertical {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.main-wrapper.page-wide .admin-form-grid.suggestions-form-vertical > * {
+  width: 100%;
+}
+
+.admin-form-vertical {
+  grid-template-columns: 1fr !important;
+}
+
+.admin-form-vertical > * {
+  width: 100%;
+}
+
 .admin-form-grid input,
 .admin-form-grid select,
 .admin-panel textarea {

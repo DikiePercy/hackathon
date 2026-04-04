@@ -33,7 +33,7 @@
 
         <div class="admin-panel">
           <h3 data-i18n="suggestions_new">Новая предложка</h3>
-          <div class="admin-form-grid">
+          <div class="admin-form-grid suggestions-form-vertical">
             <select id="suggestionKind">
               <option value="create" selected data-i18n="suggestions_kind_create">Новая запись</option>
               <option value="update" data-i18n="suggestions_kind_update">Изменение существующей записи</option>
@@ -54,6 +54,7 @@
             <input id="arrestDate" type="date" data-i18n="ph_arrest_date" placeholder="Дата ареста">
             <input id="sentenceDate" type="date" data-i18n="ph_sentence_date" placeholder="Дата приговора">
             <input id="rehabilitationDate" type="date" data-i18n="ph_rehabilitation_date" placeholder="Дата реабилитации">
+            <p class="chat-helper" data-i18n="suggestions_dates_help">Дата ареста — когда человека задержали; дата приговора — когда вынесли решение; дата реабилитации — когда человека официально оправдали.</p>
             <input id="source" type="text" data-i18n="ph_source" placeholder="Источник">
             <input id="status" type="text" data-i18n="ph_status_verified" placeholder="Статус (например, verified)">
             <input id="photoFile" type="file" accept="image/*">

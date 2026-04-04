@@ -26,6 +26,20 @@ function apiUrl(path) {
   return ADMIN_API_BASE ? `${ADMIN_API_BASE}${path}` : path;
 }
 
+function applyAiConfigToInputs(cfg = {}) {
+  document.getElementById("llmProvider").value = cfg.rag_llm_provider || "gemini";
+  document.getElementById("embeddingProvider").value = cfg.rag_embedding_provider || "gemini";
+  document.getElementById("geminiModel").value = cfg.rag_gemini_model || "";
+  document.getElementById("claudeModel").value = cfg.rag_claude_model || "";
+  document.getElementById("geminiEmbeddingModel").value = cfg.rag_gemini_embedding_model || "";
+  document.getElementById("openaiEmbeddingModel").value = cfg.rag_openai_embedding_model || "";
+
+  // Backend returns masked secrets; keep them visible in masked form to show persistence.
+  document.getElementById("geminiApiKey").value = cfg.gemini_api_key || "";
+  document.getElementById("openaiApiKey").value = cfg.openai_api_key || "";
+  document.getElementById("anthropicApiKey").value = cfg.anthropic_api_key || "";
+}
+
 function setAdminStatus(text) {
   document.getElementById("adminStatus").textContent = text;
 }
@@ -224,14 +238,7 @@ async function loadAiRuntimeConfig() {
   }
 
   const payload = await response.json();
-  const cfg = payload.config || {};
-
-  document.getElementById("llmProvider").value = cfg.rag_llm_provider || "gemini";
-  document.getElementById("embeddingProvider").value = cfg.rag_embedding_provider || "gemini";
-  document.getElementById("geminiModel").value = cfg.rag_gemini_model || "";
-  document.getElementById("claudeModel").value = cfg.rag_claude_model || "";
-  document.getElementById("geminiEmbeddingModel").value = cfg.rag_gemini_embedding_model || "";
-  document.getElementById("openaiEmbeddingModel").value = cfg.rag_openai_embedding_model || "";
+  applyAiConfigToInputs(payload.config || {});
 
   setAdminStatus(tr("admin_ai_loaded", "AI settings loaded"));
 }
@@ -270,9 +277,10 @@ async function saveAiRuntimeConfig() {
     return;
   }
 
-  document.getElementById("geminiApiKey").value = "";
-  document.getElementById("openaiApiKey").value = "";
-  document.getElementById("anthropicApiKey").value = "";
+  const body = await response.json().catch(() => ({}));
+  if (body?.config) {
+    applyAiConfigToInputs(body.config);
+  }
   setAdminStatus(tr("admin_ai_saved", "AI settings saved"));
 }
 
