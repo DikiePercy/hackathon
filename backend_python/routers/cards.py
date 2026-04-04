@@ -28,6 +28,7 @@ class PersonCardCreate(BaseModel):
     rehabilitation_date: Optional[date] = None
     description: Optional[str] = ""
     source: Optional[str] = None
+    photo_url: Optional[str] = None
     status: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
@@ -49,6 +50,7 @@ class PersonCardResponse(BaseModel):
     rehabilitation_date: Optional[date]
     description: str
     source: Optional[str]
+    photo_url: Optional[str]
     status: Optional[str]
     lat: Optional[float]
     lon: Optional[float]
@@ -98,7 +100,7 @@ def _to_public_person(card: PersonCard) -> dict:
         "sentence_date": card.sentence_date,
         "rehabilitation_date": card.rehabilitation_date,
         "biography": card.description or card.content or "",
-        "photo_url": "https://via.placeholder.com/250x350.png?text=Archive",
+        "photo_url": card.photo_url or "https://via.placeholder.com/250x350.png?text=Archive",
         "documents": [],
     }
 

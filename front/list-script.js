@@ -103,6 +103,17 @@ function getFilterValues() {
   };
 }
 
+function initSearchFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const q = (params.get("q") || "").trim();
+  if (!q) return;
+
+  const input = document.getElementById("searchInput");
+  if (input) {
+    input.value = q;
+  }
+}
+
 function applyFilters() {
   const { query, region, year } = getFilterValues();
 
@@ -183,6 +194,25 @@ async function loadPeople() {
   allPeople = Array.isArray(data) ? data.map(mapPerson) : [];
 }
 
+async function loadStats() {
+  const personsEl = document.getElementById("statsPersons");
+  const docsEl = document.getElementById("statsDocuments");
+  if (!personsEl || !docsEl) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/api/stats`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const stats = await response.json();
+    personsEl.textContent = String(stats.persons ?? 0);
+    docsEl.textContent = String(stats.documents ?? 0);
+  } catch (_err) {
+    personsEl.textContent = "-";
+    docsEl.textContent = "-";
+  }
+}
+
 function showError(message) {
   const container = document.getElementById("registryList");
   container.innerHTML = `<div class='letter-empty'>Ошибка загрузки списка: ${message}</div>`;
@@ -190,6 +220,8 @@ function showError(message) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   setupSearch();
+  loadStats();
+  initSearchFromUrl();
   try {
     await loadPeople();
     fillRegionFilter();

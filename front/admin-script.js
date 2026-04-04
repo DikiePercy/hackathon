@@ -18,6 +18,12 @@ function setAdminStatus(text) {
   document.getElementById("adminStatus").textContent = text;
 }
 
+function setAdminProtectedVisible(visible) {
+  document.querySelectorAll(".admin-protected").forEach((panel) => {
+    panel.hidden = !visible;
+  });
+}
+
 function parseIntOrNull(value) {
   if (!value || value.trim() === "") return null;
   const n = Number(value);
@@ -38,60 +44,35 @@ async function apiFetch(path, options = {}) {
 }
 
 async function checkSession() {
-  const response = await apiFetch("/me");
-  if (!response.ok) {
+  let me = null;
+  if (window.SiteAuth?.refreshSession) {
+    await window.SiteAuth.refreshSession();
+    me = window.SiteAuth.getCurrentUser();
+  } else {
+    const response = await apiFetch("/me");
+    if (response.ok) {
+      me = await response.json();
+    }
+  }
+
+  if (!me) {
     currentAdmin = null;
-    setAdminStatus("Сессия не активна");
+    setAdminProtectedVisible(false);
+    setAdminStatus("Сессия не активна. Нажмите \"Зайти как админ\".");
     return null;
   }
 
-  const me = await response.json();
   if (me.role !== "admin") {
     currentAdmin = me;
+    setAdminProtectedVisible(false);
     setAdminStatus(`Вход как ${me.username}, но роль не admin`);
     return me;
   }
 
   currentAdmin = me;
+  setAdminProtectedVisible(true);
   setAdminStatus(`Авторизован как admin: ${me.username}`);
   return me;
-}
-
-async function loginAdmin() {
-  const username = document.getElementById("adminUser").value.trim();
-  const password = document.getElementById("adminPass").value.trim();
-  if (!username || !password) {
-    setAdminStatus("Введите логин и пароль");
-    return;
-  }
-
-  const body = new URLSearchParams();
-  body.set("username", username);
-  body.set("password", password);
-
-  const response = await apiFetch("/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString()
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    setAdminStatus(`Ошибка входа: ${payload.detail || response.status}`);
-    return;
-  }
-
-  await checkSession();
-  await loadCards();
-  await loadSuggestions();
-}
-
-async function logoutAdmin() {
-  await apiFetch("/logout", { method: "POST" });
-  currentAdmin = null;
-  setAdminStatus("Вы вышли");
-  document.getElementById("adminCardsList").innerHTML = "";
-  document.getElementById("adminSuggestionsList").innerHTML = "";
 }
 
 async function createCard() {
@@ -299,7 +280,11 @@ async function loadSuggestions() {
     row.className = "admin-card-row";
 
     const info = document.createElement("div");
-    info.innerHTML = `<strong>${item.full_name}</strong> (${item.birth_year || "?"}) #${item.id}<br><small>state: ${item.state} | source: ${item.source || "-"}</small>`;
+    const photoState = item.photo_url ? "photo: yes" : "photo: placeholder";
+    const docState = item.document_filename
+      ? `doc: ${item.document_filename}`
+      : (item.document_text ? "doc: text" : "doc: -");
+    info.innerHTML = `<strong>${item.full_name}</strong> (${item.birth_year || "?"}) #${item.id}<br><small>mode: ${item.suggestion_kind}${item.target_person_id ? ` | target: #${item.target_person_id}` : ""} | state: ${item.state} | source: ${item.source || "-"} | ${photoState} | ${docState}</small>`;
     row.appendChild(info);
 
     const actions = document.createElement("div");
@@ -330,10 +315,8 @@ async function loadSuggestions() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  document.getElementById("adminLoginBtn").addEventListener("click", loginAdmin);
-  document.getElementById("adminLogoutBtn").addEventListener("click", logoutAdmin);
-  document.getElementById("adminWhoamiBtn").addEventListener("click", async () => {
-    await checkSession();
+  document.getElementById("openAdminLoginModalBtn")?.addEventListener("click", () => {
+    window.SiteAuth?.openModal?.();
   });
 
   document.getElementById("seedImportBtn").addEventListener("click", importSeedFile);
@@ -341,7 +324,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("refreshCardsBtn").addEventListener("click", loadCards);
   document.getElementById("loadSuggestionsBtn").addEventListener("click", loadSuggestions);
 
-  await checkSession();
-  await loadCards();
-  await loadSuggestions();
+  window.addEventListener("site-auth-changed", async () => {
+    const me = await checkSession();
+    if (me?.role === "admin") {
+      await loadCards();
+      await loadSuggestions();
+      return;
+    }
+
+    document.getElementById("adminCardsList").innerHTML = "";
+    document.getElementById("adminSuggestionsList").innerHTML = "";
+  });
+
+  const me = await checkSession();
+  if (me?.role === "admin") {
+    await loadCards();
+    await loadSuggestions();
+  }
 });

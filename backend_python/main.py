@@ -1,8 +1,10 @@
 import os
 from collections import defaultdict
+from pathlib import Path
 
 from fastapi import FastAPI, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 import httpx
@@ -22,6 +24,7 @@ def _parse_cors_origins() -> list[str]:
 
 
 CPP_BACKEND_URL = os.getenv("CPP_BACKEND_URL", "http://cpp_backend:8080")
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", "/data/uploads"))
 
 app = FastAPI(title="Golos iz Arkhiva API", version="3.0.0")
 
@@ -37,6 +40,9 @@ app.include_router(auth_router.router)
 app.include_router(cards.router)
 app.include_router(rag.router)
 app.include_router(suggestions.router)
+
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
 
 @app.on_event("startup")

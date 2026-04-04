@@ -23,15 +23,44 @@ async function apiFetch(path, options = {}) {
   });
 }
 
+async function loadStats() {
+  const personsEl = document.getElementById("statsPersons");
+  const docsEl = document.getElementById("statsDocuments");
+  if (!personsEl || !docsEl) return;
+
+  try {
+    const response = await apiFetch("/api/stats");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const stats = await response.json();
+    personsEl.textContent = String(stats.persons ?? "-");
+    docsEl.textContent = String(stats.documents ?? "-");
+  } catch (_err) {
+    personsEl.textContent = "-";
+    docsEl.textContent = "-";
+  }
+}
+
 function setStatus(text) {
-  document.getElementById("chatAuthStatus").textContent = text;
+  const statusEl = document.getElementById("chatStatus");
+  if (statusEl) {
+    statusEl.textContent = text;
+  }
 }
 
 function addMessage(role, text) {
   const box = document.getElementById("chatMessages");
   const div = document.createElement("div");
-  div.className = `chat-line ${role}`;
-  div.textContent = text;
+  const cssRole = role === "user" ? "user" : "ai";
+  div.className = `message ${cssRole}`;
+
+  const cleanText = text
+    .replace(/^Вы:\s*/i, "")
+    .replace(/^AI:\s*/i, "")
+    .replace(/^Ассистент:\s*/i, "");
+  div.textContent = cleanText;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
@@ -39,7 +68,7 @@ function addMessage(role, text) {
 function addSources(citations, sourceIds) {
   const box = document.getElementById("chatMessages");
   const wrap = document.createElement("div");
-  wrap.className = "chat-line assistant";
+  wrap.className = "message ai";
 
   const idsText = Array.isArray(sourceIds) && sourceIds.length
     ? `Источники person_id: ${sourceIds.join(", ")}`
@@ -101,14 +130,23 @@ function getHistoryLimit() {
 }
 
 async function checkSession() {
-  const response = await apiFetch("/me");
-  if (!response.ok) {
-    currentUser = null;
-    setStatus("Не авторизован");
+  if (window.SiteAuth?.refreshSession) {
+    await window.SiteAuth.refreshSession();
+    currentUser = window.SiteAuth.getCurrentUser();
+  } else {
+    const response = await apiFetch("/me");
+    if (!response.ok) {
+      currentUser = null;
+    } else {
+      currentUser = await response.json();
+    }
+  }
+
+  if (!currentUser) {
+    setStatus("Не авторизован. Нажмите \"Зайти\" в шапке.");
     return null;
   }
 
-  currentUser = await response.json();
   setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
   return currentUser;
 }
@@ -148,66 +186,6 @@ async function loadHistory(reset = true) {
   loadMoreBtn.disabled = !hasMore;
 }
 
-async function registerUser() {
-  const username = document.getElementById("loginUser").value.trim();
-  const password = document.getElementById("loginPass").value.trim();
-  if (!username || !password) {
-    setStatus("Введите логин и пароль");
-    return;
-  }
-
-  const response = await apiFetch("/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password })
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    setStatus(`Ошибка регистрации: ${payload.detail || response.status}`);
-    return;
-  }
-
-  setStatus("Регистрация успешна. Теперь войдите.");
-}
-
-async function loginUser() {
-  const username = document.getElementById("loginUser").value.trim();
-  const password = document.getElementById("loginPass").value.trim();
-  if (!username || !password) {
-    setStatus("Введите логин и пароль");
-    return;
-  }
-
-  const body = new URLSearchParams();
-  body.set("username", username);
-  body.set("password", password);
-
-  const response = await apiFetch("/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString()
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    setStatus(`Ошибка входа: ${payload.detail || response.status}`);
-    return;
-  }
-
-  await checkSession();
-  await loadHistory(true);
-}
-
-async function logoutUser() {
-  await apiFetch("/logout", { method: "POST" });
-  currentUser = null;
-  historyOffset = 0;
-  document.getElementById("chatHistory").innerHTML = "";
-  document.getElementById("chatHistoryMeta").textContent = "";
-  setStatus("Вы вышли");
-}
-
 async function sendMessage() {
   const input = document.getElementById("chatInput");
   const query = input.value.trim();
@@ -240,9 +218,6 @@ async function sendMessage() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  document.getElementById("registerBtn").addEventListener("click", registerUser);
-  document.getElementById("loginBtn").addEventListener("click", loginUser);
-  document.getElementById("logoutBtn").addEventListener("click", logoutUser);
   document.getElementById("sendChatBtn").addEventListener("click", sendMessage);
   document.getElementById("loadHistoryBtn").addEventListener("click", () => loadHistory(true));
   document.getElementById("loadMoreHistoryBtn").addEventListener("click", () => loadHistory(false));
@@ -254,8 +229,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  window.addEventListener("site-auth-changed", async (event) => {
+    currentUser = event.detail?.user || null;
+    historyOffset = 0;
+
+    if (currentUser) {
+      setStatus(`Вход выполнен: ${currentUser.username} (${currentUser.role})`);
+      await loadHistory(true);
+      return;
+    }
+
+    setStatus("Не авторизован. Нажмите \"Зайти\" в шапке.");
+    document.getElementById("chatHistory").innerHTML = "";
+    document.getElementById("chatHistoryMeta").textContent = "";
+  });
+
   await checkSession();
   if (currentUser) {
     await loadHistory(true);
   }
+  await loadStats();
 });
