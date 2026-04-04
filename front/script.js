@@ -62,7 +62,11 @@ function formatDate(dateStr) {
 
 function renderPerson(data) {
   currentPersonData = data;
-  document.getElementById("personName").textContent = data.full_name;
+  const displayName = [data?.full_name, data?.name, data?.title]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .find((v) => v.length > 0) || tr("profile_unknown_name", "Без имени");
+
+  document.getElementById("personName").textContent = displayName;
   const years = [data.birth_year, data.death_year].filter(Boolean).join(" - ");
   document.getElementById("personYears").textContent = years ? `(${years})` : "";
 
@@ -74,7 +78,7 @@ function renderPerson(data) {
       photoEl.onerror = null;
       setPortraitVisible(false);
     };
-    photoEl.alt = "Портрет: " + data.full_name;
+    photoEl.alt = "Портрет: " + displayName;
   } else {
     setPortraitVisible(false);
   }
