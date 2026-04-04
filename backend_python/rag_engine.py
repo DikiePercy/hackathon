@@ -374,3 +374,7 @@ def get_runtime_config() -> Dict[str, Any]:
         "embedding_provider": RAG_EMBEDDING_PROVIDER,
         "model": RAG_OLLAMA_MODEL if RAG_LLM_PROVIDER == "ollama" else "gemini"
     }
+
+def update_runtime_config(updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Stub to support old code. Local RAG doesn't update config via API."""
+    return get_runtime_config()
