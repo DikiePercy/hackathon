@@ -3,6 +3,19 @@
 
 set -e
 
+compose_exec() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose exec -T python_backend "$@"
+        return
+    fi
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose exec -T python_backend "$@"
+        return
+    fi
+    echo "   ❌ Docker Compose not found"
+    exit 1
+}
+
 echo "╔════════════════════════════════════════════════════════╗"
 echo "║        ПРОВЕРКА ИНТЕГРАЦИИ OLLAMA С RAG               ║"
 echo "╚════════════════════════════════════════════════════════╝"
@@ -35,12 +48,12 @@ check
 
 # 4. Конфигурация
 echo "4️⃣  Проверка конфигурации backend..."
-docker exec hackathon_python env | grep -q "RAG_LLM_PROVIDER=ollama"
+compose_exec env | grep -q "RAG_LLM_PROVIDER=ollama"
 check
 
 # 5. RAG модули
 echo "5️⃣  Проверка RAG модулей..."
-docker exec hackathon_python python3 -c "from rag_engine import _build_llm, _build_embeddings; _build_llm(); _build_embeddings()" 2>&1 | grep -v "Warning" | grep -v "FutureWarning" | grep -v "Deprecation" > /dev/null
+compose_exec python3 -c "from rag_engine import _build_llm, _build_embeddings; _build_llm(); _build_embeddings()" 2>&1 | grep -v "Warning" | grep -v "FutureWarning" | grep -v "Deprecation" > /dev/null
 check
 
 echo ""

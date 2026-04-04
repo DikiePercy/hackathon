@@ -6,6 +6,7 @@ cd "$REPO_ROOT"
 
 APT_UPDATED=0
 ENV_CREATED=0
+AUTO_INSTALL_DEPS="${AUTO_INSTALL_DEPS:-1}"
 
 log() {
   printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -19,14 +20,11 @@ require_cmd() {
 }
 
 as_root() {
-  if [[ "${EUID}" -eq 0 ]]; then
-    "$@"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo "$@"
-  else
-    log "Need root privileges. Run as root or install sudo."
+  if [[ "${EUID}" -ne 0 ]]; then
+    log "Run this script as root: sudo bash scripts/start.sh"
     exit 1
   fi
+  "$@"
 }
 
 apt_update_once() {
@@ -60,6 +58,13 @@ ensure_compose_available() {
     return
   fi
 
+  if [[ "$AUTO_INSTALL_DEPS" != "1" ]]; then
+    log "Docker Compose not found."
+    log "Install Docker Compose plugin (recommended) and rerun:"
+    log "  sudo apt-get install -y docker-compose-plugin"
+    exit 1
+  fi
+
   if try_install_package docker-compose-plugin; then
     return
   fi
@@ -77,9 +82,21 @@ ensure_compose_available() {
 }
 
 ensure_prerequisites() {
+  if command -v docker >/dev/null 2>&1; then
+    ensure_compose_available
+    return
+  fi
+
+  if [[ "$AUTO_INSTALL_DEPS" != "1" ]]; then
+    log "Docker is not installed or unavailable for this user."
+    log "Install Docker manually, add user to docker group, then rerun."
+    log "Or run with AUTO_INSTALL_DEPS=1 on Debian/Ubuntu to auto-install."
+    exit 1
+  fi
+
   if [[ ! -f /etc/debian_version ]]; then
     log "Auto-install is supported for Debian/Ubuntu only. Install Docker manually."
-    return
+    exit 1
   fi
 
   ensure_package ca-certificates
@@ -353,16 +370,16 @@ ensure_ollama_on_11434() {
     curl -fsSL https://ollama.com/install.sh | sh
   fi
 
-  if command -v systemctl >/dev/null 2>&1; then
-    as_root systemctl enable ollama >/dev/null 2>&1 || true
-    as_root systemctl restart ollama >/dev/null 2>&1 || as_root systemctl start ollama >/dev/null 2>&1 || true
-  fi
+  log "Configuring Ollama systemd service on 0.0.0.0:11434"
+  mkdir -p /etc/systemd/system/ollama.service.d
+  cat > /etc/systemd/system/ollama.service.d/override.conf <<'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+EOF
 
-  if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
-    log "Starting ollama serve in background"
-    pkill -f "ollama serve" >/dev/null 2>&1 || true
-    nohup ollama serve >/tmp/ollama.log 2>&1 &
-  fi
+  systemctl daemon-reload
+  systemctl enable ollama >/dev/null 2>&1 || true
+  systemctl restart ollama
 
   log "Waiting for Ollama API on 127.0.0.1:11434"
   local i
@@ -376,7 +393,7 @@ ensure_ollama_on_11434() {
 
   if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     log "Ollama API did not become ready on 127.0.0.1:11434"
-    log "Check logs: sudo journalctl -u ollama -n 120 --no-pager or tail -n 120 /tmp/ollama.log"
+    log "Check logs: journalctl -u ollama -n 120 --no-pager"
     exit 1
   fi
 
