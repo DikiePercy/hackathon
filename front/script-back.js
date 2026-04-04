@@ -3,8 +3,18 @@
  
  
  
- const personNameElem = document.getElementById('personName');
-    if (personNameElem) {
+function resolveApiBase() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get("api");
+    if (fromQuery) {
+        return fromQuery.replace(/\/$/, "");
+    }
+    return "";
+}
+
+const API_BASE = resolveApiBase();
+const personNameElem = document.getElementById('personName');
+if (personNameElem) {
         const mockData = {
             full_name: "Гольдберг Максим Ефимович",
             birth_year: 1900,
@@ -15,11 +25,11 @@
         };
 
         // Пытаемся получить данные с бэкенда
-        fetch('http://localhost:8000/api/person/18')
+        fetch(`${API_BASE}/api/person/18`)
             .then(response => response.json())
             .then(data => renderPerson(data))
             .catch(() => renderPerson(mockData));
-    }
+}
 
 function renderPerson(data) {
     if (!personNameElem) return;
