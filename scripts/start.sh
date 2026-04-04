@@ -198,7 +198,7 @@ ensure_cpp_dockerfile() {
     return
   fi
 
-  if [[ -d "$REPO_ROOT/backend_cpp" && -s "$REPO_ROOT/backend_cpp/CMakeLists.txt" && -s "$REPO_ROOT/backend_cpp/main.cpp" ]]; then
+  if [[ -d "$REPO_ROOT/backend_cpp" ]]; then
     log "backend_cpp/Dockerfile missing, generating fallback Dockerfile"
     cat > "$target" <<'EOF'
 FROM ubuntu:22.04
@@ -213,7 +213,13 @@ WORKDIR /app
 
 COPY . .
 
-RUN cmake . && make
+RUN if [ -f CMakeLists.txt ]; then \
+      cmake . && make; \
+    elif [ -f main.cpp ]; then \
+      g++ -O2 -std=c++17 main.cpp -o cpp_backend; \
+    else \
+      echo "No C++ build files found (expected CMakeLists.txt or main.cpp)" && exit 1; \
+    fi
 
 EXPOSE 8080
 
@@ -236,7 +242,7 @@ ensure_backend_python_dockerfile() {
     return
   fi
 
-  if [[ -d "$REPO_ROOT/backend_python" && -s "$REPO_ROOT/backend_python/requirements.txt" && -s "$REPO_ROOT/backend_python/main.py" ]]; then
+  if [[ -d "$REPO_ROOT/backend_python" ]]; then
     log "backend_python/Dockerfile missing, generating fallback Dockerfile"
     cat > "$target" <<'EOF'
 FROM python:3.11-slim
@@ -249,10 +255,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
 COPY . .
+
+RUN if [ -f requirements.txt ]; then \
+      pip install --no-cache-dir -r requirements.txt; \
+    fi
+
+RUN if [ ! -f main.py ]; then \
+      echo "main.py is missing in backend_python" && exit 1; \
+    fi
 
 EXPOSE 8000
 
