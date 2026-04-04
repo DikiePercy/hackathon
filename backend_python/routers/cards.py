@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db, PersonCard, User
-from auth import require_admin
+from auth import get_current_user, require_admin
 
 router = APIRouter()
 
@@ -247,7 +247,7 @@ def list_cards(
     region: Optional[str] = Query(None),
     birth_year: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     query = db.query(PersonCard)
     
@@ -268,7 +268,7 @@ def list_cards(
 def get_card(
     card_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
@@ -283,7 +283,7 @@ def get_card(
 def create_card(
     card_data: PersonCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     payload = _normalize_card_payload(card_data)
     duplicate = db.query(PersonCard).filter(
@@ -308,7 +308,7 @@ def update_card(
     card_id: int,
     card_data: PersonCardCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     payload = _normalize_card_payload(card_data)
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
@@ -341,7 +341,7 @@ def update_card(
 def delete_card(
     card_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     card = db.query(PersonCard).filter(PersonCard.id == card_id).first()
     if not card:
@@ -359,7 +359,7 @@ def delete_card(
 def import_cards(
     cards_data: List[PersonCardCreate],
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     created = 0
     skipped_duplicates = 0
@@ -396,7 +396,7 @@ def import_cards(
 def import_seed_cards(
     cards_data: List[SeedPersonCard],
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     result = _import_seed_rows(cards_data, db)
     db.commit()
@@ -452,7 +452,7 @@ def import_seed_examples(
 async def import_persons_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     content = await file.read()
     try:

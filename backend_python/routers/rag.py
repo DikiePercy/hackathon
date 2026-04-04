@@ -84,7 +84,7 @@ async def upload_document(
     file: UploadFile = File(...),
     person_id: int = Form(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     if not file.filename:
         raise HTTPException(
