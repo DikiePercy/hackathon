@@ -6,16 +6,18 @@ from uuid import uuid4
 import chromadb
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 RUNTIME_ENV_KEYS = {
     "gemini_api_key": "GEMINI_API_KEY",
     "openai_api_key": "OPENAI_API_KEY",
     "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "groq_api_key": "GROQ_API_KEY",
     "rag_llm_provider": "RAG_LLM_PROVIDER",
     "rag_embedding_provider": "RAG_EMBEDDING_PROVIDER",
     "rag_gemini_model": "RAG_GEMINI_MODEL",
     "rag_claude_model": "RAG_CLAUDE_MODEL",
+    "rag_groq_model": "RAG_GROQ_MODEL",
     "rag_gemini_embedding_model": "RAG_GEMINI_EMBEDDING_MODEL",
     "rag_openai_embedding_model": "RAG_OPENAI_EMBEDDING_MODEL",
 }
@@ -80,10 +82,12 @@ def get_runtime_config(mask_secrets: bool = False) -> Dict[str, Any]:
         "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
         "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
         "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", ""),
+        "groq_api_key": os.getenv("GROQ_API_KEY", ""),
         "rag_llm_provider": (os.getenv("RAG_LLM_PROVIDER", "gemini") or "gemini").strip().lower(),
         "rag_embedding_provider": (os.getenv("RAG_EMBEDDING_PROVIDER", "gemini") or "gemini").strip().lower(),
         "rag_gemini_model": os.getenv("RAG_GEMINI_MODEL", "gemini-1.5-flash"),
         "rag_claude_model": os.getenv("RAG_CLAUDE_MODEL", "claude-3-5-sonnet-20240620"),
+        "rag_groq_model": os.getenv("RAG_GROQ_MODEL", "groq/compound"),
         "rag_gemini_embedding_model": _normalize_gemini_embedding_model(
             os.getenv("RAG_GEMINI_EMBEDDING_MODEL", "models/text-embedding-004")
         ),
@@ -104,6 +108,7 @@ def get_runtime_config(mask_secrets: bool = False) -> Dict[str, Any]:
     masked["gemini_api_key"] = mask(config["gemini_api_key"])
     masked["openai_api_key"] = mask(config["openai_api_key"])
     masked["anthropic_api_key"] = mask(config["anthropic_api_key"])
+    masked["groq_api_key"] = mask(config["groq_api_key"])
     return masked
 
 
@@ -198,6 +203,16 @@ def _get_embeddings() -> Any:
 def _build_llm() -> Any:
     cfg = get_runtime_config(mask_secrets=False)
 
+    if cfg["rag_llm_provider"] == "groq":
+        if not cfg["groq_api_key"]:
+            raise ValueError("GROQ_API_KEY is not configured")
+        return ChatOpenAI(
+            model=cfg["rag_groq_model"],
+            api_key=cfg["groq_api_key"],
+            base_url="https://api.groq.com/openai/v1",
+            temperature=0.3,
+        )
+
     if cfg["rag_llm_provider"] == "claude":
         if not cfg["anthropic_api_key"]:
             raise ValueError("ANTHROPIC_API_KEY is not configured")
@@ -276,16 +291,24 @@ def add_documents_to_vector_db(chunks: List[str], person_id: Optional[int], docu
 
 def search_documents(query: str, top_k: int = 3) -> Dict[str, List[Any]]:
     """Run vector similarity search and return documents + metadatas."""
-    embeddings = _get_embeddings()
-
     if not query or not query.strip():
         raise ValueError("Query must not be empty")
 
     try:
+        embeddings = _get_embeddings()
         collection = _get_collection()
         query_vector = embeddings.embed_query(query)
         results = collection.query(query_embeddings=[query_vector], n_results=max(1, top_k))
     except Exception as exc:
+        fallback = _lexical_fallback_search(
+            query=query,
+            top_k=top_k,
+            candidate_k=max(16, top_k),
+            min_score=0.0,
+            where_filter=None,
+        )
+        if fallback["documents"]:
+            return {"documents": fallback["documents"], "metadatas": fallback["metadatas"]}
         raise RuntimeError(f"Chroma similarity search failed: {exc}") from exc
 
     documents = (results.get("documents") or [[]])[0]
@@ -317,6 +340,45 @@ def _distance_to_similarity(distance: Any) -> float:
     return 1.0 / (1.0 + d)
 
 
+def _lexical_fallback_search(
+    query: str,
+    top_k: int,
+    candidate_k: int,
+    min_score: float,
+    where_filter: dict | None = None,
+) -> Dict[str, List[Any]]:
+    """Fallback retrieval mode without embeddings (lexical ranking over stored chunks)."""
+    try:
+        collection = _get_collection()
+        raw = collection.get(
+            where=where_filter,
+            include=["documents", "metadatas"],
+            limit=max(top_k, candidate_k, 64),
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Chroma fallback retrieval failed: {exc}") from exc
+
+    documents = raw.get("documents") or []
+    metadatas = raw.get("metadatas") or []
+
+    candidates: list[dict] = []
+    for idx, doc in enumerate(documents):
+        if not isinstance(doc, str):
+            continue
+        meta = metadatas[idx] if idx < len(metadatas) and isinstance(metadatas[idx], dict) else {}
+        score = _lexical_score(query, doc)
+        candidates.append({"document": doc, "metadata": meta, "score": score})
+
+    ranked = sorted(candidates, key=lambda x: x["score"], reverse=True)
+    filtered = [row for row in ranked if row["score"] >= min_score][: max(1, top_k)]
+
+    return {
+        "documents": [row["document"] for row in filtered],
+        "metadatas": [row["metadata"] for row in filtered],
+        "scores": [round(float(row["score"]), 4) for row in filtered],
+    }
+
+
 def search_documents_ranked(
     query: str,
     top_k: int = 4,
@@ -325,14 +387,13 @@ def search_documents_ranked(
     person_id: int | None = None,
 ) -> Dict[str, List[Any]]:
     """Retrieve candidates, rerank by hybrid score, and return filtered context docs."""
-    embeddings = _get_embeddings()
-
     if not query or not query.strip():
         raise ValueError("Query must not be empty")
 
     where_filter = {"person_id": int(person_id)} if person_id is not None else None
 
     try:
+        embeddings = _get_embeddings()
         collection = _get_collection()
         query_vector = embeddings.embed_query(query)
         results = collection.query(
@@ -342,6 +403,15 @@ def search_documents_ranked(
             include=["documents", "metadatas", "distances"],
         )
     except Exception as exc:
+        fallback = _lexical_fallback_search(
+            query=query,
+            top_k=top_k,
+            candidate_k=candidate_k,
+            min_score=min_score,
+            where_filter=where_filter,
+        )
+        if fallback["documents"]:
+            return fallback
         raise RuntimeError(f"Chroma similarity search failed: {exc}") from exc
 
     documents = (results.get("documents") or [[]])[0]

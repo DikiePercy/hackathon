@@ -31,6 +31,7 @@ function applyAiConfigToInputs(cfg = {}) {
   document.getElementById("embeddingProvider").value = cfg.rag_embedding_provider || "gemini";
   document.getElementById("geminiModel").value = cfg.rag_gemini_model || "";
   document.getElementById("claudeModel").value = cfg.rag_claude_model || "";
+  document.getElementById("groqModel").value = cfg.rag_groq_model || "groq/compound";
   document.getElementById("geminiEmbeddingModel").value = cfg.rag_gemini_embedding_model || "";
   document.getElementById("openaiEmbeddingModel").value = cfg.rag_openai_embedding_model || "";
 
@@ -38,6 +39,7 @@ function applyAiConfigToInputs(cfg = {}) {
   document.getElementById("geminiApiKey").value = cfg.gemini_api_key || "";
   document.getElementById("openaiApiKey").value = cfg.openai_api_key || "";
   document.getElementById("anthropicApiKey").value = cfg.anthropic_api_key || "";
+  document.getElementById("groqApiKey").value = cfg.groq_api_key || "";
 }
 
 function setAdminStatus(text) {
@@ -254,6 +256,7 @@ async function saveAiRuntimeConfig() {
     rag_embedding_provider: document.getElementById("embeddingProvider").value,
     rag_gemini_model: document.getElementById("geminiModel").value.trim(),
     rag_claude_model: document.getElementById("claudeModel").value.trim(),
+    rag_groq_model: document.getElementById("groqModel").value.trim(),
     rag_gemini_embedding_model: document.getElementById("geminiEmbeddingModel").value.trim(),
     rag_openai_embedding_model: document.getElementById("openaiEmbeddingModel").value.trim(),
   };
@@ -261,9 +264,11 @@ async function saveAiRuntimeConfig() {
   const geminiKey = document.getElementById("geminiApiKey").value.trim();
   const openaiKey = document.getElementById("openaiApiKey").value.trim();
   const anthropicKey = document.getElementById("anthropicApiKey").value.trim();
+  const groqKey = document.getElementById("groqApiKey").value.trim();
   if (geminiKey) payload.gemini_api_key = geminiKey;
   if (openaiKey) payload.openai_api_key = openaiKey;
   if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+  if (groqKey) payload.groq_api_key = groqKey;
 
   const response = await apiFetch("/admin/ai/runtime-config", {
     method: "POST",

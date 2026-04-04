@@ -52,6 +52,7 @@
             <select id="llmProvider">
               <option value="gemini">gemini</option>
               <option value="claude">claude</option>
+              <option value="groq">groq</option>
             </select>
 
             <label for="embeddingProvider" data-i18n="admin_embedding_provider_label">Embedding провайдер</label>
@@ -63,8 +64,10 @@
             <input id="geminiApiKey" type="password" placeholder="GEMINI_API_KEY">
             <input id="openaiApiKey" type="password" placeholder="OPENAI_API_KEY">
             <input id="anthropicApiKey" type="password" placeholder="ANTHROPIC_API_KEY">
+            <input id="groqApiKey" type="password" placeholder="GROQ_API_KEY">
             <input id="geminiModel" type="text" placeholder="RAG_GEMINI_MODEL">
             <input id="claudeModel" type="text" placeholder="RAG_CLAUDE_MODEL">
+            <input id="groqModel" type="text" placeholder="RAG_GROQ_MODEL">
             <input id="geminiEmbeddingModel" type="text" placeholder="RAG_GEMINI_EMBEDDING_MODEL">
             <input id="openaiEmbeddingModel" type="text" placeholder="RAG_OPENAI_EMBEDDING_MODEL">
           </div>

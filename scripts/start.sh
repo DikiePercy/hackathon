@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 APT_UPDATED=0
+ENV_CREATED=0
 
 log() {
   printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -114,9 +115,11 @@ SECRET_KEY=${secret_key}
 GEMINI_API_KEY=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+GROQ_API_KEY=
 RAG_LLM_PROVIDER=gemini
 RAG_GEMINI_MODEL=gemini-1.5-flash
 RAG_CLAUDE_MODEL=claude-3-5-sonnet-20240620
+RAG_GROQ_MODEL=groq/compound
 RAG_EMBEDDING_PROVIDER=gemini
 RAG_GEMINI_EMBEDDING_MODEL=models/text-embedding-004
 RAG_OPENAI_EMBEDDING_MODEL=text-embedding-3-large
@@ -126,6 +129,8 @@ DB_DATA_DIR=${REPO_ROOT}/runtime-data/postgres
 CHROMA_DATA_DIR=${REPO_ROOT}/runtime-data/chroma
 APP_DATA_DIR=${REPO_ROOT}/runtime-data/app
 EOF
+
+  ENV_CREATED=1
 }
 
 migrate_legacy_env_values() {
@@ -320,6 +325,11 @@ compose_cmd() {
 ensure_prerequisites
 require_cmd docker
 ensure_env_file
+if [[ "$ENV_CREATED" -eq 1 ]]; then
+  log "Template .env was created at $REPO_ROOT/.env"
+  log "Edit .env values (API keys, admin credentials, paths), then rerun ./scripts/start.sh"
+  exit 0
+fi
 migrate_legacy_env_values
 normalize_project_layout
 ensure_cpp_dockerfile
